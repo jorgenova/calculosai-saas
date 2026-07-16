@@ -1,0 +1,49 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    restart: unless-stopped
+    networks:
+      - traefik-public
+      - internal
+    environment:
+      DATABASE_URL_APP: ${DATABASE_URL_APP}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLIC_KEY: ${STRIPE_PUBLIC_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.http.routers.scaffolding-api.rule=PathPrefix(`/api`)
+      - traefik.http.routers.scaffolding-api.entrypoints=web
+      - traefik.http.routers.scaffolding-api.priority=10
+      - traefik.http.middlewares.scaffolding-strip.stripprefix.prefixes=/api
+      - traefik.http.routers.scaffolding-api.middlewares=scaffolding-strip
+      - traefik.http.services.scaffolding-api.loadbalancer.server.port=3000
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    restart: unless-stopped
+    networks:
+      - traefik-public
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.http.routers.scaffolding-frontend.rule=PathPrefix(`/`)
+      - traefik.http.routers.scaffolding-frontend.entrypoints=web
+      - traefik.http.routers.scaffolding-frontend.priority=1
+      - traefik.http.services.scaffolding-frontend.loadbalancer.server.port=80
+
+networks:
+  traefik-public:
+    external: true
+  internal:
+    internal: true

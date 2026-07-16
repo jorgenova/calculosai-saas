@@ -1,0 +1,20 @@
+{
+  "name": "saas-scaffolding",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck:backend": "npm run typecheck --workspace=packages/backend",
+    "typecheck:frontend": "npm run typecheck --workspace=packages/frontend",
+    "ci:bypassrls": "node scripts/check-bypassrls.js",
+    "create-saas": "node scripts/create-saas.js"
+  },
+  "devDependencies": {
+    "pg": "^8.21.0",
+    "typescript": "6.0.3"
+  }
+}
