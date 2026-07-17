@@ -1,0 +1,91 @@
+# Documentação de Arquitetura e Negócios: Sistema Contábil SaaS
+**Visão Geral:** Construção de um sistema contábil em nuvem, moderno e focado em inteligência artificial. O objetivo é entregar a robustez de regras de negócio de sistemas legados (como o Domínio Sistemas), porém com uma interface limpa, dinâmica, orientada a processos e altamente automatizada.
+
+---
+
+## 🚀 Fases do Projeto (Checklist V 2.0)
+
+### Fase 1: Fundação e Arquitetura
+- **Stack Tecnológica:** Definição de linguagens, Cloud e Banco de Dados.
+- **Modelagem Multi-tenant:** Isolamento seguro de dados entre diferentes escritórios e empresas.
+- **Segurança e Conformidade:** Criptografia, controle de acessos (RBAC) e adequação à LGPD.
+- **Log de Auditoria Imutável (Audit Trail):** Registro à prova de fraudes de "quem fez o que e quando" (usuários e IAs).
+- **Single Source of Truth:** Garantia de que dados do Fiscal reflitam no Contábil em tempo real, sem duplicidades.
+
+### Fase 2: Motores de Regras (O Cérebro)
+- **Motor de Regras Tributárias:** Evolução do conceito de "Acumuladores".
+- **Motor de Obrigações Acessórias:** Estrutura nativa para extração de layouts complexos (SPEDs, DCTF, EFD-Reinf).
+- **Plano de Contas:** Global e Customizável.
+- **Parametrização de Regimes:** MEI, Simples Nacional, Lucro Presumido, Lucro Real.
+
+### Fase 3: Módulos Operacionais (O MVP)
+- **Módulo Fiscal:** Entrada/saída de notas, apuração, guias e geração de arquivos SPED.
+- **Módulo Contábil:** Partidas dobradas instantâneas, Balancete, DRE e Balanço.
+- **Módulo Departamento Pessoal:** Cadastro, folha, cálculo de guias e integração eSocial.
+- **Módulo Societário / Legalização:** Robô para controle de Alvarás, Certificados Digitais e emissão de CNDs.
+- **Módulo de Gestão do Escritório:** Honorários, protocolo e mensageria.
+
+### Fase 4: Camada de Inteligência Artificial
+- **Integração de LLM:** Conexão nativa no banco de dados.
+- **IA Fase 1 (Copiloto):** Assistente de suporte legislativo em tela.
+- **IA Fase 2 (Assistente Júnior):** Leitura via OCR/Extração de dados de notas e extratos (com Fila de Aprovação Humana).
+- **IA Fase 3 (Agentes Independentes):** Processamento em lote em background.
+- **IA Fase 4 (Consultor de Negócios):** IA Analítica que traduz números (DRE) em relatórios gerenciais para o cliente final.
+
+### Fase 5: Integrações e Ecossistema (Open API)
+- **Integração de Software:** APIs abertas para ERPs (Omie, Conta Azul, etc.).
+- **Integração Governamental:** e-CAC, SEFAZ, Prefeituras (Busca de XMLs) e eSocial.
+- **Gateway de Pagamentos / BPO:** Emissão de boletos, Pix e conciliação bancária (Open Finance).
+
+### Fase 6: Interface e Experiência do Usuário (UX/UI)
+- **Painel do Contador:** Visão geral de pendências, guias e status de CNDs.
+- **Portal do Cliente Final:** App/Web para envio de documentos e visualização da "IA Consultiva".
+
+---
+
+## 🗄️ Estrutura de Banco de Dados: Cadastros Básicos
+
+O modelo é estritamente **Multi-tenant**. O cadastro inicial é desenhado para ter o menor atrito possível, delegando dados complexos (CRC do contador) para etapas secundárias.
+
+### Nível 1: O Assinante (Escritório ou Profissional Liberal)
+- `ID_Assinante` (UUID)
+- `CPF` ou `CNPJ`
+- `Nome_Completo` ou `Razao_Social`
+- `Nome_Fantasia`
+- `Plano_Assinatura`
+- `Status_Conta` (Ativo, Inadimplente, Cancelado)
+
+### Nível 2: O Cliente Final (Empresa)
+*Preenchimento automatizado via API (ex: ReceitaWS) a partir da digitação do CNPJ.*
+- `ID_Empresa` (UUID)
+- `ID_Assinante` (Chave Estrangeira - Isolamento Multi-tenant)
+- `CNPJ` / `Razao_Social` / `Nome_Fantasia`
+- `Regime_Tributario` (MEI, Simples Nacional, Presumido, Real, Imune/Isenta)
+- `CNAE_Principal` e `CNAEs_Secundarios`
+- `Inscricao_Estadual` e `Inscricao_Municipal`
+- `Natureza_Juridica`
+- `Certificado_Digital_Empresa` (Gatilho para o Robô de CNDs)
+- `Credenciais_Prefeitura` (Login/Senha para busca de NFSe)
+
+---
+
+## 🎛️ Módulo Fiscal: Interface Baseada em Processos (Operational UI)
+
+O sistema não adapta sua interface apenas pelo Regime Tributário, mas sim pelos **processos da empresa**. Isso oculta a complexidade e exibe apenas os campos necessários.
+
+### Ativação Manual com Controle de Vigência
+O contador liga/desliga processos manualmente. O sistema exige uma **Data de Início/Fim (Vigência)** para garantir que recálculos de meses anteriores não sejam afetados pelas regras novas e para manter a auditoria limpa.
+
+### As Abas de Processos (Plug-and-Play)
+1. **Processos de Serviço:**
+   - Foco: Notas de Serviço (NFSe) e Retenções na Fonte (ISS, IRRF, PIS/COFINS, INSS).
+2. **Processos de Comércio e Varejo:**
+   - Foco: NFe e NFCe, Substituição Tributária (ICMS-ST), DIFAL e Conciliação de Cartões.
+3. **Processos de Estoque e Indústria:**
+   - Foco: Ordem de Produção, Inventário e geração nativa do Bloco K do SPED.
+4. **Processos de Logística e Transporte:**
+   - Foco: CTe, MDFe e controle de frotas (pedágio, combustível).
+5. **Processos Especiais (Sob Demanda):**
+   - Comércio Exterior (Siscomex, Variação Cambial).
+   - Agropecuária (LCDPR).
+   - Criptoativos (IN 1888).
