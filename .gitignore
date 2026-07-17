@@ -19,3 +19,6 @@ npm-debug.log*
 # IDE
 .vscode/
 .idea/
+
+# Plugin local de skills (não versionado)
+ddd-spec-plugin/
