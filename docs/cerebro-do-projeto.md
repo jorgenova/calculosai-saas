@@ -3,6 +3,43 @@
 
 ---
 
+## Estado da sessao — 2026-08-04 (fechamento do dia)
+
+Trabalho do dia: formalizar o fluxo SDD/DDD (skill `write-domain-spec`, instalada
+em `~/.claude/skills/`) e alinhar o Tenant a ele.
+
+**Feito e commitado em `main` (push ja aplicado):**
+- `docs/specs/tenant.md` e `docs/specs/cliente.md` — status `aprovado`, sem
+  decisoes em aberto pendentes (commit `b767a68`)
+- Implementacao alinhada a spec do Tenant — schema (estado do Tenant, tabela
+  `Convite` com RLS), onboarding reordenado (Tenant antes do Stripe), webhook do
+  Stripe, aceite de convite (backend + pagina `AceitarConvite.tsx`) (commit
+  `a6fccb5`)
+- Corrigido um crash real: `ROLLBACK` dentro de `catch` podia falhar tambem com o
+  banco indisponivel e derrubava o processo inteiro — corrigido em
+  `onboardingController.ts`, `inviteController.ts`, `stripeWebhookController.ts`
+
+**Pendente pra amanha (retomar por aqui):**
+1. Aplicar a migration `0002_tenant_status_convite` no banco real — nao rodei por
+   nao ter `DATABASE_URL`/Doppler configurado no ambiente onde trabalhei
+   (`cd packages/backend && npx prisma migrate deploy`)
+2. Criar o webhook no Dashboard do Stripe + `STRIPE_WEBHOOK_SECRET` no Doppler
+   (dev e prd) — manual, so o Jorge consegue fazer
+3. Decidir e implementar o job de expiracao de 7 dias (UC-03 do `tenant.md`) — schema
+   ja suporta o estado `expirado`, so falta o mecanismo (crontab do SO vs.
+   node-cron in-process, discussao ficou em aberto)
+4. UI de coleta de pagamento no `Onboarding.tsx` (Stripe Elements/PaymentElement) —
+   sem isso nenhum Tenant sai de `pendente_pagamento` na pratica
+5. O mesmo bug do ROLLBACK ainda existe, sem corrigir, em `authController.ts` e
+   `middlewares/tenant.ts` (nao fazia parte da spec de Tenant, ficou de fora
+   deliberadamente)
+6. `docs/specs/cliente.md` esta aprovada mas **sem nenhum codigo** — proxima spec
+   candidata a virar implementacao (greenfield, ao contrario do Tenant que ja tinha
+   codigo pra alinhar)
+7. `docs/backlog.md` — Audit Trail continua P0 #1, nada disso foi tocado hoje
+
+---
+
 ## Visao Geral
 
 Sistema SaaS B2B multitenant para o mercado brasileiro exclusivamente.
