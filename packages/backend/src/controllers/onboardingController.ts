@@ -34,12 +34,6 @@ export async function onboarding(req: Request, res: Response) {
       return res.status(400).json({ error: 'Slug ja em uso' });
     }
 
-    // Cria cliente no Stripe
-    const customer = await createCustomer(email, companyName);
-
-    // Cria assinatura no Stripe
-    const subscription = await createSubscription(customer.id, priceId);
-
     // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -53,7 +47,9 @@ export async function onboarding(req: Request, res: Response) {
       ['app.current_tenant', tenantId]
     );
 
-    // Cria tenant
+    // Cria tenant — nasce pendente_pagamento (default do schema). A cobranca no
+    // Stripe so acontece DEPOIS deste commit, para nunca deixar uma assinatura
+    // orfa se o insert falhar (docs/specs/tenant.md, UC-01/D-02).
     await db.query(
       `INSERT INTO "Tenant" (id, name, cnpj, slug, "createdAt")
        VALUES ($1, $2, $3, $4, NOW())`,
@@ -69,17 +65,42 @@ export async function onboarding(req: Request, res: Response) {
 
     await db.query('COMMIT');
 
-    // Envia e-mail de boas vindas
-    await sendWelcomeEmail(email, companyName, slug);
+    // A partir daqui o Tenant ja existe e a resposta ja e um 201 garantido.
+    // Stripe e e-mail sao best-effort (UC-01/D-02, D-03): falha aqui nunca deve
+    // desfazer o cadastro nem virar 500 pro cliente.
+    try {
+      const customer = await createCustomer(email, companyName);
+      const subscription = await createSubscription(customer.id, priceId);
+
+      await db.query('BEGIN');
+      await db.query(
+        'SELECT set_config($1, $2, true)',
+        ['app.current_tenant', tenantId]
+      );
+      await db.query(
+        `UPDATE "Tenant" SET "stripeCustomerId" = $1, "stripeSubscriptionId" = $2
+         WHERE id = $3`,
+        [customer.id, subscription.id, tenantId]
+      );
+      await db.query('COMMIT');
+    } catch (stripeErr) {
+      await db.query('ROLLBACK').catch(() => {});
+      console.error('Erro ao solicitar assinatura no Stripe (Tenant permanece pendente_pagamento):', stripeErr);
+    }
+
+    try {
+      await sendWelcomeEmail(email, companyName, slug);
+    } catch (emailErr) {
+      console.error('Erro ao enviar e-mail de boas-vindas:', emailErr);
+    }
 
     return res.status(201).json({
       message: 'Conta criada com sucesso',
       tenantId,
-      subscription: subscription.id,
     });
 
   } catch (err) {
-    await db.query('ROLLBACK');
+    await db.query('ROLLBACK').catch(() => {});
     console.error('Erro no onboarding:', err);
     return res.status(500).json({ error: 'Erro interno' });
   }

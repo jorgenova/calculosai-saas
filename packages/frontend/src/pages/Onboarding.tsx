@@ -16,7 +16,6 @@ type OnboardingForm = {
 type OnboardingResponse = {
   message: string
   tenantId: string
-  subscription: string
 }
 
 type CnpjResponse = {

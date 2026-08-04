@@ -8,13 +8,17 @@ datasource db {
 }
 
 model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  cnpj      String   @unique
-  slug      String?  @unique
-  createdAt DateTime @default(now()) @map("createdAt")
+  id                   String       @id @default(uuid())
+  name                 String
+  cnpj                 String       @unique
+  slug                 String?      @unique
+  status               TenantStatus @default(pendente_pagamento)
+  stripeCustomerId     String?      @map("stripeCustomerId")
+  stripeSubscriptionId String?      @map("stripeSubscriptionId")
+  createdAt            DateTime     @default(now()) @map("createdAt")
 
   users     User[]
+  convites  Convite[]
 
   @@map("Tenant")
 }
@@ -35,9 +39,40 @@ model User {
   @@map("User")
 }
 
+model Convite {
+  id                 String        @id @default(uuid())
+  tenantId           String
+  email              String
+  tokenHash          String        @unique
+  status             ConviteStatus @default(pendente)
+  convidadoPorUserId String
+  createdAt          DateTime      @default(now()) @map("createdAt")
+  expiresAt          DateTime      @map("expiresAt")
+
+  tenant             Tenant        @relation(fields: [tenantId], references: [id])
+
+  @@map("Convite")
+}
+
 enum Role {
   owner
   attendant
 
   @@map("Role")
+}
+
+enum TenantStatus {
+  pendente_pagamento
+  ativo
+  expirado
+
+  @@map("TenantStatus")
+}
+
+enum ConviteStatus {
+  pendente
+  aceito
+  expirado
+
+  @@map("ConviteStatus")
 }

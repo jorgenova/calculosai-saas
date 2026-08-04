@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 // Pages — importadas com lazy depois; por ora stubs
 import { LoginPage } from '@/pages/Login'
 import { OnboardingPage } from '@/pages/Onboarding'
+import { AceitarConvitePage } from '@/pages/AceitarConvite'
 import { OwnerDashboard } from '@/pages/OwnerDashboard'
 import { AttendantDashboard } from '@/pages/AttendantDashboard'
 
@@ -16,6 +17,7 @@ export function App() {
           {/* Públicas */}
           <Route path="/entrar" element={<LoginPage />} />
           <Route path="/cadastro" element={<OnboardingPage />} />
+          <Route path="/convite" element={<AceitarConvitePage />} />
 
           {/* Proprietário */}
           <Route
