@@ -104,14 +104,19 @@ Este repositorio e um boilerplate generico reutilizavel para qualquer SaaS B2B.
 ```sql
 -- Enum
 CREATE TYPE "Role" AS ENUM ('owner', 'attendant');
+CREATE TYPE "TenantStatus" AS ENUM ('pendente_pagamento', 'ativo', 'expirado');
+CREATE TYPE "ConviteStatus" AS ENUM ('pendente', 'aceito', 'expirado');
 
 -- Tenant
 CREATE TABLE "Tenant" (
-  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  name        TEXT NOT NULL,
-  cnpj        TEXT NOT NULL UNIQUE,
-  slug        TEXT UNIQUE,
-  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name                   TEXT NOT NULL,
+  cnpj                   TEXT NOT NULL UNIQUE,
+  slug                   TEXT UNIQUE,
+  status                 "TenantStatus" NOT NULL DEFAULT 'pendente_pagamento',
+  "stripeCustomerId"     TEXT,
+  "stripeSubscriptionId" TEXT,
+  "createdAt"            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- User
@@ -126,6 +131,19 @@ CREATE TABLE "User" (
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id),
   UNIQUE (email, "tenantId")
+);
+
+-- Convite (aceite de atendente por token — ver docs/specs/tenant.md)
+CREATE TABLE "Convite" (
+  id                   TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  "tenantId"           TEXT NOT NULL,
+  email                TEXT NOT NULL,
+  "tokenHash"          TEXT NOT NULL UNIQUE,
+  status               "ConviteStatus" NOT NULL DEFAULT 'pendente',
+  "convidadoPorUserId" TEXT NOT NULL,
+  "createdAt"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "expiresAt"          TIMESTAMPTZ NOT NULL,
+  FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id)
 );
 ```
 
@@ -180,6 +198,26 @@ CREATE POLICY user_update ON "User" FOR UPDATE
   WITH CHECK ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
 
 CREATE POLICY user_delete ON "User" FOR DELETE
+  USING ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
+
+-- Convite
+ALTER TABLE "Convite" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Convite" FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY convite_select ON "Convite" FOR SELECT
+  USING (true);
+-- IMPORTANTE: SELECT é permissivo de propósito — o endpoint público de aceite de
+-- convite não conhece o tenantId até localizar o Convite pelo hash do token.
+-- O token (32 bytes de entropia) já restringe a consulta a no máximo uma linha.
+
+CREATE POLICY convite_insert ON "Convite" FOR INSERT
+  WITH CHECK ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
+
+CREATE POLICY convite_update ON "Convite" FOR UPDATE
+  USING     ("tenantId" = current_setting('app.current_tenant', true)::TEXT)
+  WITH CHECK ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
+
+CREATE POLICY convite_delete ON "Convite" FOR DELETE
   USING ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
 ```
 

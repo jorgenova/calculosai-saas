@@ -1,7 +1,7 @@
 # Spec de domínio: Cliente
 
-Status: rascunho
-Última atualização: 2026-07-16
+Status: aprovado
+Última atualização: 2026-08-04
 
 ## 1. Bounded context
 
@@ -133,6 +133,35 @@ Cenário: Atendente tenta aprovar sua própria solicitação
   Então a ação é rejeitada — só o Owner pode decidir
 ```
 
+### UC-05: Owner reativa um Cliente encerrado
+
+Como Owner, quero reativar um Cliente encerrado, para retomar o atendimento sem
+perder o histórico já registrado nem precisar recadastrá-lo do zero.
+
+**Critérios de aceite:**
+
+```gherkin
+Cenário: Reativação bem-sucedida
+  Dado que o Cliente "Padaria do João Ltda" está `Encerrado`
+  E eu estou autenticado como Owner do Tenant
+  Quando eu reativo esse Cliente
+  Então o Cliente passa para o estado `Ativo`
+  E volta a aparecer na listagem padrão de clientes do escritório
+  E todo o histórico anterior (períodos de regime, etc.) permanece intacto
+
+Cenário: Atendente tenta reativar
+  Dado que o Cliente "Padaria do João Ltda" está `Encerrado`
+  E eu estou autenticado como Atendente
+  Quando eu tento reativar esse Cliente
+  Então a ação é rejeitada — só o Owner pode reativar
+
+Cenário: Tentativa de cadastrar novo Cliente com identificação fiscal de um Cliente Encerrado
+  Dado que existe um Cliente `Encerrado` com CNPJ "12.345.678/0001-90" neste Tenant
+  Quando alguém tenta cadastrar um novo Cliente com o mesmo CNPJ (UC-01)
+  Então o cadastro é rejeitado com erro de duplicidade, do mesmo jeito que para um
+    Cliente `Ativo` — a ação correta é reativar o Cliente existente, não criar um novo
+```
+
 ## 4. Modelo de domínio
 
 ### Entidades
@@ -141,8 +170,9 @@ Cenário: Atendente tenta aprovar sua própria solicitação
   `EncerramentoPendente` | `Encerrado`. Transições: `Ativo → EncerramentoPendente`
   (solicitação de Atendente), `Ativo → Encerrado` (encerramento direto do Owner),
   `EncerramentoPendente → Encerrado` (aprovação do Owner),
-  `EncerramentoPendente → Ativo` (rejeição do Owner). `Encerrado` é terminal neste
-  contexto (não há reativação modelada — ver Decisões em aberto).
+  `EncerramentoPendente → Ativo` (rejeição do Owner), `Encerrado → Ativo`
+  (reativação pelo Owner — ver UC-05). `Encerrado` não é mais terminal: um Cliente
+  reativado retoma o histórico anterior (períodos de regime, etc.) intacto.
 
 ### Value Objects
 
@@ -180,8 +210,10 @@ Cenário: Atendente tenta aprovar sua própria solicitação
 
 ## 5. Invariantes e regras de negócio
 
-- INV-01: A IdentificaçãoFiscal de um Cliente é única dentro do mesmo Tenant, mas
-  pode se repetir entre Tenants diferentes (dois escritórios podem atender, cada um,
+- INV-01: A IdentificaçãoFiscal de um Cliente é única dentro do mesmo Tenant,
+  independente do seu estado (`Ativo`, `EncerramentoPendente` ou `Encerrado` — um
+  Cliente `Encerrado` continua contando pra essa unicidade, já que nunca é removido).
+  Pode se repetir entre Tenants diferentes (dois escritórios podem atender, cada um,
   um cliente com o mesmo CNPJ, sem conflito entre si).
 - INV-02: Um Cliente sempre pertence a exatamente um Tenant, definido no cadastro e
   imutável depois — transferência de Cliente entre Tenants está fora de escopo.
@@ -208,43 +240,51 @@ Cenário: Atendente tenta aprovar sua própria solicitação
 - INV-09: Somente o Owner pode aprovar ou rejeitar uma solicitação de encerramento;
   um Atendente não pode decidir sobre a própria solicitação nem sobre a de outro
   Atendente.
+- INV-10: Somente o Owner pode reativar um Cliente `Encerrado`. A reativação preserva
+  integralmente o histórico anterior do Cliente (períodos de regime, etc.) — não é um
+  recadastro.
+- INV-11: Não há prazo de retenção definido para os dados de um Cliente `Encerrado`
+  nesta versão — INV-06 garante que não são apagados, mas por quanto tempo fica em
+  aberto para um futuro contexto de Compliance/LGPD (backlog P1).
 
 ## 6. Eventos de domínio
 
 | Evento | Quando ocorre | Payload mínimo | Possíveis consumidores |
 |---|---|---|---|
-| ClienteCadastrado | Cliente criado com sucesso | clienteId, tenantId, identificaçãoFiscal, regimeTributárioInicial | Contabilidade (pode iniciar plano de contas), Fiscal, DP |
+| ClienteCadastrado | Cliente criado com sucesso | clienteId, tenantId, identificaçãoFiscal, regimeTributárioInicial | Contabilidade (provisiona automaticamente um plano de contas inicial a partir de um template global), Fiscal, DP |
 | RegimeTributárioAlterado | Novo período de regime registrado | clienteId, regimeAnterior, regimeNovo, dataEfetiva | Motor de Regras Tributárias (recalcula parametrização de impostos) |
 | EncerramentoSolicitado | Atendente solicita encerramento de um Cliente | clienteId, tenantId, solicitanteId, dataSolicitacao | Owner (precisa ser notificado para decidir) |
 | ClienteEncerrado | Atendimento de um Cliente é encerrado (direto pelo Owner ou por aprovação) | clienteId, tenantId, aprovadorId (Owner), solicitanteId (nulo se direto), dataEncerramento | Módulos operacionais (podem parar de gerar novas obrigações para esse Cliente) |
 | SolicitacaoDeEncerramentoRejeitada | Owner rejeita uma solicitação pendente | clienteId, tenantId, aprovadorId, solicitanteId, dataRejeicao | Solicitante (precisa ser notificado da decisão) |
+| ClienteReativado | Owner reativa um Cliente `Encerrado` | clienteId, tenantId, reativadoPorUserId (Owner), dataReativacao | Módulos operacionais (podem voltar a gerar obrigações para esse Cliente) |
 
 ## 7. Fora de escopo
 
-- Reativação de um Cliente `Encerrado` — não modelada nesta versão (ver decisão em
-  aberto abaixo).
 - Controle de acesso por departamento (Pessoal, Fiscal, Contábil, Societário) —
   pertence ao contexto de Auth/Autorização. Este contexto só garante que a
   visibilidade do *cadastro* de Cliente não é afetada por departamento (INV-04).
 - Atribuição de Cliente a atendentes específicos (carteira por contador) — hoje o
   acesso é uniforme para todo usuário autenticado do Tenant, independente de
   departamento (ver INV-04).
-- A estrutura do Plano de Contas em si — pertence ao contexto de Contabilidade, que
-  vai referenciar Cliente por `id`.
-- Validação ativa da IdentificaçãoFiscal contra a Receita Federal — se necessária,
-  deve seguir o mesmo padrão de "Serviço de domínio" já usado no cadastro do Tenant.
+- A estrutura do Plano de Contas em si (contas, hierarquia, template global em si) —
+  pertence ao contexto de Contabilidade. Este contexto só garante que
+  `ClienteCadastrado` é o gatilho para a Contabilidade provisionar um plano de contas
+  inicial a partir de um template.
+- Prazo formal de retenção de dados após encerramento (LGPD/Compliance) — ver INV-11.
 - Mudança de plano de cobrança e configurações administrativas do Tenant.
 
 ## 8. Decisões em aberto
 
-- Um Cliente `Encerrado` pode ser reativado (voltar para `Ativo`), ou encerramento é
-  definitivo e um novo atendimento vira um Cliente novo?
-- Existe prazo legal de retenção de dados após o encerramento, ou os dados ficam
-  retidos indefinidamente (INV-06 só garante que não são apagados, mas não define
-  por quanto tempo)?
-- O Plano de Contas é um template global customizável por Cliente, ou totalmente
-  próprio por Cliente? Isso decide se `ClienteCadastrado` deve ou não disparar
-  criação automática de um plano de contas inicial.
-- A IdentificaçãoFiscal do Cliente precisa de validação ativa contra a Receita
-  Federal (como no cadastro do Tenant), ou basta a validação local de dígito
-  verificador?
+Nenhuma no momento — as 4 questões abertas na primeira versão desta spec foram todas
+resolvidas em 2026-08-04 (ver histórico abaixo).
+
+---
+
+## Histórico de decisões (2026-08-04)
+
+| # | Decisão original | Resolução adotada |
+|---|---|---|
+| 1 | Reativação de Cliente `Encerrado` | Permitida (UC-05, `Encerrado → Ativo`). Evita conflito com INV-01 (unicidade de identificação fiscal por Tenant) e preserva histórico contínuo (INV-10) |
+| 2 | Prazo de retenção de dados após encerramento | Sem prazo definido nesta versão; fica para um futuro contexto de Compliance/LGPD (INV-11) |
+| 3 | Plano de Contas: template global ou próprio por Cliente | Template global customizável — `ClienteCadastrado` é o gatilho para a Contabilidade provisionar o plano de contas inicial (evento atualizado, seção 6) |
+| 4 | Validação ativa de CNPJ/CPF contra a Receita Federal | Só validação local de dígito verificador (já era o comportamento do Value Object `IdentificaçãoFiscal`, seção 4) — diferente da abordagem adotada para Tenant |
