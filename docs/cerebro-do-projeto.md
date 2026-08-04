@@ -418,6 +418,14 @@ saas_scaffolding/
 - ProtectedRoute suporta requireOwner para rotas exclusivas do owner
 - api/client.ts centraliza todas as chamadas HTTP com token automatico
 
+**Decisao 2026-08-04 — estrategia de layout:** o visual atual (Tailwind
+minimalista, DM Sans, azul+cinzas) e o scaffolding generico original, nao a
+identidade definitiva do produto. Decidido ajustar de forma **incremental**, nao
+redesign completo: manter a base atual e ir substituindo identidade
+visual/componentes conforme cada tela nova e construida (ex: quando o contexto
+Cliente for implementado, ja nasce com o layout definitivo, em vez de nascer no
+visual generico pra depois refazer).
+
 ## Decisoes de Backend
 
 - CORS habilitado via pacote cors — origens controladas por ALLOWED_ORIGINS no Doppler
