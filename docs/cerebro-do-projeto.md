@@ -30,9 +30,11 @@ em `~/.claude/skills/`) e alinhar o Tenant a ele.
    node-cron in-process, discussao ficou em aberto)
 4. UI de coleta de pagamento no `Onboarding.tsx` (Stripe Elements/PaymentElement) —
    sem isso nenhum Tenant sai de `pendente_pagamento` na pratica
-5. O mesmo bug do ROLLBACK ainda existe, sem corrigir, em `authController.ts` e
-   `middlewares/tenant.ts` (nao fazia parte da spec de Tenant, ficou de fora
-   deliberadamente)
+5. ~~O mesmo bug do ROLLBACK ainda existe, sem corrigir, em `authController.ts` e
+   `middlewares/tenant.ts`~~ — corrigido em 2026-08-05: `.catch(() => {})` no
+   ROLLBACK/COMMIT de `middlewares/tenant.ts` (listeners `finish`/`close`, evita
+   unhandled rejection) e ROLLBACK adicionado no catch de `authController.ts`
+   (login), que nao tinha nenhum
 6. `docs/specs/cliente.md` esta aprovada mas **sem nenhum codigo** — proxima spec
    candidata a virar implementacao (greenfield, ao contrario do Tenant que ja tinha
    codigo pra alinhar)

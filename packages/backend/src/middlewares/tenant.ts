@@ -21,11 +21,11 @@ export async function tenantMiddleware(
     );
 
     res.on('finish', async () => {
-      await db.query('COMMIT');
+      await db.query('COMMIT').catch(() => {});
     });
 
     res.on('close', async () => {
-      await db.query('ROLLBACK');
+      await db.query('ROLLBACK').catch(() => {});
     });
 
     next();

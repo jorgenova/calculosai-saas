@@ -50,6 +50,7 @@ export async function login(req: Request, res: Response) {
 
     return res.json({ token });
   } catch (err) {
+    await db.query('ROLLBACK').catch(() => {});
     console.error('Erro no login:', err);
     return res.status(500).json({ error: 'Erro interno' });
   }
