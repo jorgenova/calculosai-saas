@@ -16,10 +16,10 @@ export async function subdomainMiddleware(
 
     let slug: string | undefined;
 
-    if (!isIpAddress(host) && parts.length >= 3) {
-      slug = parts[0];
-    } else if (req.body?.slug) {
+    if (req.body?.slug) {
       slug = req.body.slug;
+    } else if (!isIpAddress(host) && parts.length >= 3) {
+      slug = parts[0];
     }
 
     if (!slug) {
