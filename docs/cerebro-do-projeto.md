@@ -3,6 +3,114 @@
 
 ---
 
+## Estado da sessao — 2026-08-05 (deploy em servidor novo)
+
+Decisao do dia: abandonar a VPS Hostgator (infra antiga, projeto Doppler
+`saas-scaffolding`, Supabase antigo) e migrar pra um servidor proprio na rede
+local do Jorge. Sessao inteira foi hands-on, o Jorge rodando os comandos no
+servidor e eu guiando passo a passo.
+
+**Servidor novo:**
+- Debian 13 (trixie), x86_64, 4 cores, 7.7GB RAM — host `SRVDEB0001`,
+  IP `192.168.15.14` (rede local, sem dominio ainda), usuario `jnova`
+- Tinha um projeto Docker antigo (`hermes` — uvicorn+postgres+netdata+ollama) que
+  foi derrubado (`docker compose down` + stop) pra liberar portas/recursos —
+  containers parados mas nao apagados, dá pra subir de novo se precisar
+- Stack instalada: Node v24 via nvm, PM2 (rodando como servico systemd
+  `pm2-jnova.service`, `enabled` + sobrevive a reboot via `pm2 save`), Nginx
+  (`/etc/nginx/sites-available/calculosai-saas`, unico site, `default_server`
+  na porta 80 — o site `default` do Debian foi removido)
+- Repo clonado em `/var/www/calculosai-saas` (branch `main`, publico, clone
+  HTTPS sem credencial)
+
+**Doppler novo:**
+- Projeto renomeado de `saas-scaffolding` pra **`superior-contabil`** — esse e
+  o nome real do produto agora (calculosai-saas era so o nome do repo)
+- Configs `dev`/`stg`/`prd`/`dev_personal` criados; servidor usa `prd`
+- Autenticado no servidor via `doppler login` (OAuth pessoal do Jorge, nao
+  service token) + `doppler setup` apontando pra
+  `/var/www/calculosai-saas` (`.doppler.yaml` la dentro)
+- Secrets setadas em `prd`: `DATABASE_URL`, `DATABASE_URL_APP`, `JWT_SECRET`,
+  `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY`,
+  `STRIPE_PUBLIC_KEY`, `STRIPE_SECRET_KEY`, `ALLOWED_ORIGINS` — falta so
+  `STRIPE_WEBHOOK_SECRET` (pendencia antiga, continua pendente)
+
+**Supabase novo:**
+- Project ref `nfzoyhdocjhowragfwdr`, host pooler
+  **`aws-0-sa-east-1.pooler.supabase.com`** (nao e `aws-1` como o projeto
+  antigo documentado mais abaixo neste arquivo — cada projeto Supabase pode
+  cair num node de pooler diferente, sempre confirmar no dashboard em vez de
+  assumir)
+- Formato do usuario no pooler: `migration_user.nfzoyhdocjhowragfwdr` /
+  `app_user.nfzoyhdocjhowragfwdr`, porta `5432` (modo sessao — `6543` e modo
+  transacao, nao usar pra Prisma)
+- `app_user`/`migration_user` recriados do zero (senhas novas, guardadas so no
+  Doppler)
+
+**Descoberta importante — gap no historico de migrations do Prisma:**
+`0001_baseline` e um arquivo `migration.sql` **vazio de proposito** (o processo
+real desse projeto sempre foi criar tabela manualmente como `postgres` no SQL
+Editor do Supabase e so sincronizar o Prisma depois via `db pull`/`resolve` —
+nunca via `migrate deploy` puro rodando DDL). Alem disso, a coluna `slug` da
+`Tenant` (adicionada na semana 4, `config/semana-04.md`) **tambem nunca virou
+migration rastreada**. Ou seja, `0001_baseline` + `0002_tenant_status_convite`
+sozinhos **nao reproduzem o schema atual** documentado embaixo na secao
+"Modelo de Dados" deste arquivo. Pra levantar o banco novo, montei o schema
+final completo (com `slug` incluso) manualmente como `postgres`, direto a
+partir do SQL documentado nas secoes "Modelo de Dados" + "RLS — Policies
+ativas" deste arquivo, e so depois rodei:
+```
+npx prisma migrate resolve --applied 0001_baseline
+npx prisma migrate resolve --applied 0002_tenant_status_convite
+```
+(o `0001_baseline` ja tinha sido marcado como aplicado numa tentativa anterior
+de `migrate deploy` que falhou no meio). **Pendencia nova:** criar uma
+migration real (`0003_tenant_slug` ou nome parecido) que adiciona a coluna
+`slug` + a policy `tenant_select` com a clausula `slug IS NOT NULL`, pra
+fechar esse gap no repo de vez — hoje esse historico so funciona porque
+sabemos montar o schema na mao.
+
+**Validado funcionando, de ponta a ponta:**
+- `npm install` com scripts aprovados (`npm approve-scripts` — bcrypt,
+  prisma, esbuild precisam rodar postinstall/node-gyp)
+- Build de backend (`tsc`) e frontend (`vite build`, com
+  `packages/frontend/.env.production` contendo `VITE_API_URL=` vazio —
+  **importante**: vazio, nao ausente, senao cai no fallback `/api` que o
+  backend nao usa; as rotas sao montadas na raiz: `/auth`, `/onboarding`,
+  `/convite`, `/tenant`, `/invite`, `/webhooks`, `/health`)
+- Backend rodando via PM2 + Nginx proxy, sobrevive a restart do systemd
+- Cadastro (`/cadastro`) e login (`/entrar`) testados manualmente pelo Jorge no
+  navegador — Tenant/User gravados corretamente via `app_user` com RLS ativo
+- Erro esperado do Stripe apareceu nos logs (ver pendencia do price ID abaixo)
+  mas foi tratado como best-effort, sem derrubar o processo — confirma que o
+  fix do ROLLBACK/try-catch continua funcionando
+
+**Pendente novo, especifico deste deploy:**
+1. `packages/frontend/src/pages/Onboarding.tsx:5` tem o `PRICE_ID` do Stripe
+   **fixo e hardcoded**, apontando pro produto do projeto Stripe antigo
+   (`price_1TYZPpRtUHllh5POkbuZXNTH`) — nao existe na conta Stripe nova. Criar
+   produto/preco na conta nova e atualizar essa constante.
+2. `STRIPE_WEBHOOK_SECRET` ainda nao criado (pendencia antiga, continua)
+3. `ALLOWED_ORIGINS` foi setado durante a sessao mas o valor exato nao foi
+   confirmado aqui — como frontend e backend estao atras do mesmo Nginx/origem,
+   CORS na pratica nao bloqueia o fluxo principal, mas vale conferir o valor
+   setado no Doppler quando for expor um dominio real
+4. Sem dominio ainda — acesso e via IP local (`http://192.168.15.14`). Definir
+   dominio + HTTPS (Let's Encrypt/certbot) antes de expor pra internet
+5. CI/CD (`.github/workflows/ci.yml`) foi removido num commit antigo
+   (`76168fa`) e nunca foi recriado — deploy neste servidor novo foi 100%
+   manual, passo a passo. Nao ha automacao de deploy hoje.
+6. VPS Hostgator (infra antiga documentada nas secoes abaixo) nao foi
+   formalmente desligada/decommissioned — decidir o que fazer com ela
+7. Migration `0003` pra fechar o gap do `slug` (ver acima)
+
+**Continuam pendentes de sessoes anteriores (nao tocadas hoje):**
+- Job de expiracao de 7 dias (UC-03 do `tenant.md`)
+- `docs/specs/cliente.md` aprovada, ainda sem nenhum codigo
+- `docs/backlog.md` — Audit Trail continua P0 #1
+
+---
+
 ## Estado da sessao — 2026-08-04 (fechamento do dia)
 
 Trabalho do dia: formalizar o fluxo SDD/DDD (skill `write-domain-spec`, instalada
