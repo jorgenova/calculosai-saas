@@ -109,6 +109,27 @@ sabemos montar o schema na mao.
 - `docs/specs/cliente.md` aprovada, ainda sem nenhum codigo
 - `docs/backlog.md` — Audit Trail continua P0 #1
 
+**RLS validado manualmente no fim do dia:** conectado como `postgres` no SQL
+Editor, `GRANT app_user TO postgres` (necessario pro `SET ROLE` funcionar — no
+Supabase o `postgres` nao e superuser de verdade, e um role com privilegios
+amplos mas restrito), depois `SET ROLE app_user` + `set_config('app.current_tenant', ...)`
+alternando entre o tenant real e um UUID inexistente. Isolamento confirmado:
+`User` vazio sem tenant setado, populado com o tenant certo, vazio de novo com
+tenant errado/inexistente.
+
+**Esclarecimento de escopo pra amanha:** o que foi construido ate agora
+(onboarding, login, convite, dashboards owner/attendant) e o **sistema em si**
+que o escritorio contabil vai usar no dia a dia — nao existe nenhum site
+institucional/publico ainda (quem acessa a raiz cai direto em `/entrar`).
+Trabalho de amanha e estilo/layout, dividido em 3 frentes distintas:
+1. Site institucional (publico, nao existe nada ainda — precisa ser criado do zero)
+2. Area de login/onboarding (existe, visual generico do scaffolding)
+3. Sistema interno / dashboards (existe, visual generico do scaffolding)
+
+Lembrar da decisao ja registrada mais abaixo neste arquivo (secao "Decisoes de
+Frontend"): ajuste de identidade visual e **incremental**, tela por tela, nao
+redesign completo de uma vez.
+
 ---
 
 ## Estado da sessao — 2026-08-04 (fechamento do dia)
