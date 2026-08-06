@@ -128,7 +128,7 @@ export function LoginPage() {
         {/* Link para cadastro */}
         <p className="text-center text-sm text-gray-500 mt-6">
           Ainda não tem conta?{' '}
-          <Link to="/cadastro" className="text-brand-600 hover:text-brand-700 font-medium">
+          <Link to="/cadastro" className="text-ink-600 hover:text-ink-700 font-medium">
             Criar conta
           </Link>
         </p>

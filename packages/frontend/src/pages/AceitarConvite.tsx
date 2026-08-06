@@ -158,7 +158,7 @@ export function AceitarConvitePage() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Já tem conta?{' '}
-          <Link to="/entrar" className="text-brand-600 hover:text-brand-700 font-medium">
+          <Link to="/entrar" className="text-ink-600 hover:text-ink-700 font-medium">
             Entrar
           </Link>
         </p>

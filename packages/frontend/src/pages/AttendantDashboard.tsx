@@ -51,8 +51,8 @@ export function AttendantDashboard() {
             Bem-vindo
           </p>
           <p className="text-gray-900 font-medium">
-            Você está autenticado como <span className="text-brand-600">atendente</span>
-            {tenant && <> em <span className="font-mono text-brand-600">{tenant.slug}</span></>}.
+            Você está autenticado como <span className="text-ink-600">atendente</span>
+            {tenant && <> em <span className="font-mono text-ink-600">{tenant.slug}</span></>}.
           </p>
           <p className="text-xs text-gray-400 mt-1 font-mono">uid: {user?.userId}</p>
         </div>
@@ -68,7 +68,7 @@ export function AttendantDashboard() {
           </p>
           <div className="mt-4 flex gap-2">
             <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded font-mono">role: attendant</span>
-            <span className="text-xs bg-brand-50 text-brand-600 px-2 py-1 rounded font-mono">RLS ativo</span>
+            <span className="text-xs bg-ink-50 text-ink-600 px-2 py-1 rounded font-mono">RLS ativo</span>
           </div>
         </div>
 

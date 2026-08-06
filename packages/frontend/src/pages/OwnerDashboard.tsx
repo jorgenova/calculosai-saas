@@ -114,7 +114,7 @@ export function OwnerDashboard() {
             </div>
             <div>
               <p className="text-xs text-gray-400">Identificador</p>
-              <p className="text-sm font-medium text-brand-600 font-mono">{tenant?.slug}</p>
+              <p className="text-sm font-medium text-ink-600 font-mono">{tenant?.slug}</p>
             </div>
           </div>
         </div>

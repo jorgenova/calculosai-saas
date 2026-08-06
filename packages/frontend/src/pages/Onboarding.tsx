@@ -179,7 +179,7 @@ export function OnboardingPage() {
             </div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Conta criada com sucesso!</h2>
             <p className="text-sm text-gray-500 mb-6">
-              Verifique seu e-mail e acesse sua conta com o identificador <span className="font-mono text-brand-600">{form.slug}</span>.
+              Verifique seu e-mail e acesse sua conta com o identificador <span className="font-mono text-ink-600">{form.slug}</span>.
             </p>
             <button className="btn-primary" onClick={() => navigate('/entrar')}>
               Ir para o login
@@ -254,7 +254,7 @@ export function OnboardingPage() {
               />
               {form.slug && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Acesso: <span className="text-brand-600">{form.slug}</span>.seudominio.com.br
+                  Acesso: <span className="text-ink-600">{form.slug}</span>.seudominio.com.br
                 </p>
               )}
             </div>
@@ -311,7 +311,7 @@ export function OnboardingPage() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Já tem conta?{' '}
-          <Link to="/entrar" className="text-brand-600 hover:text-brand-700 font-medium">
+          <Link to="/entrar" className="text-ink-600 hover:text-ink-700 font-medium">
             Entrar
           </Link>
         </p>
