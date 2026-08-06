@@ -60,7 +60,7 @@ export function LoginPage() {
       {/* Painel de marca */}
       <div className="hidden lg:flex lg:w-2/5 bg-ink-900 text-white flex-col justify-between p-12">
         <div>
-          <span className="text-h3 font-semibold tracking-tight">CalculosAI</span>
+          <span className="text-h3 font-semibold tracking-tight">Superior Contábil</span>
         </div>
         <div className="max-w-sm">
           <div className="h-px w-10 bg-aurum-400 mb-6" />
@@ -71,7 +71,7 @@ export function LoginPage() {
             Lançamentos, DRE, conciliação bancária e gestão de clientes em um único lugar.
           </p>
         </div>
-        <p className="text-xs text-ink-400">© {new Date().getFullYear()} CalculosAI</p>
+        <p className="text-xs text-ink-400">© {new Date().getFullYear()} Superior Contábil</p>
       </div>
 
       {/* Formulário */}

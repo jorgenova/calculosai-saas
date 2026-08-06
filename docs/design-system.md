@@ -1,4 +1,4 @@
-# Design System — CalculosAI (Sistema para Escritórios de Contabilidade)
+# Design System — Superior Contábil (Sistema para Escritórios de Contabilidade)
 
 > Documento de referência do design system do produto. Cobre o site institucional e o sistema logado (área do escritório). Gerado em 2026-08-06 a partir de sessão de definição com o Owner.
 

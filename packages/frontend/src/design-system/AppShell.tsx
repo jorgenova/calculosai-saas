@@ -30,7 +30,7 @@ export function AppShell({ tenantName, roleLabel, onLogout, pageTitle, children 
     <div className="min-h-dvh flex">
       <aside className="hidden md:flex md:w-60 md:flex-col bg-ink-900 text-white shrink-0">
         <div className="px-6 py-6 border-b border-ink-800">
-          <span className="text-h3 font-semibold tracking-tight">CalculosAI</span>
+          <span className="text-h3 font-semibold tracking-tight">Superior Contábil</span>
           {tenantName && <p className="text-xs text-ink-400 mt-1 truncate">{tenantName}</p>}
         </div>
 
@@ -63,7 +63,7 @@ export function AppShell({ tenantName, roleLabel, onLogout, pageTitle, children 
 
       <div className="flex-1 flex flex-col bg-graphite-50 min-w-0">
         <header className="md:hidden bg-white border-b border-graphite-200 px-4 h-14 flex items-center justify-between">
-          <span className="font-semibold text-graphite-900">{tenantName ?? 'CalculosAI'}</span>
+          <span className="font-semibold text-graphite-900">{tenantName ?? 'Superior Contábil'}</span>
           <button onClick={onLogout} className="text-sm text-graphite-500 hover:text-graphite-700">
             Sair
           </button>
