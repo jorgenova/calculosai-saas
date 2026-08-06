@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/api/client'
 import { Button, Input } from '@/design-system'
+import logoSuperiorContabil from '@/assets/logo-superior-contabil.png'
 
 type LoginForm = {
   slug: string
@@ -60,7 +61,7 @@ export function LoginPage() {
       {/* Painel de marca */}
       <div className="hidden lg:flex lg:w-2/5 bg-ink-900 text-white flex-col justify-between p-12">
         <div>
-          <span className="text-h3 font-semibold tracking-tight">Superior Contábil</span>
+          <img src={logoSuperiorContabil} alt="Superior Contábil" className="h-8 w-auto" />
         </div>
         <div className="max-w-sm">
           <div className="h-px w-10 bg-aurum-400 mb-6" />

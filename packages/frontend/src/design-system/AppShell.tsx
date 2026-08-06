@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import { Badge } from './Badge'
 import { Button } from './Button'
+import logoSuperiorContabil from '@/assets/logo-superior-contabil.png'
 
 type NavItem = {
   label: string
@@ -30,8 +31,8 @@ export function AppShell({ tenantName, roleLabel, onLogout, pageTitle, children 
     <div className="min-h-dvh flex">
       <aside className="hidden md:flex md:w-60 md:flex-col bg-ink-900 text-white shrink-0">
         <div className="px-6 py-6 border-b border-ink-800">
-          <span className="text-h3 font-semibold tracking-tight">Superior Contábil</span>
-          {tenantName && <p className="text-xs text-ink-400 mt-1 truncate">{tenantName}</p>}
+          <img src={logoSuperiorContabil} alt="Superior Contábil" className="h-6 w-auto" />
+          {tenantName && <p className="text-xs text-ink-400 mt-2 truncate">{tenantName}</p>}
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
