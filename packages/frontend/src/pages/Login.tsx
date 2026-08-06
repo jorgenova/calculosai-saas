@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/api/client'
+import { Button, Input } from '@/design-system'
 
 type LoginForm = {
   slug: string
@@ -55,84 +56,79 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-
-        {/* Logo / título */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">Entrar</h1>
-          <p className="text-sm text-gray-500 mt-1">Acesse sua conta</p>
+    <div className="min-h-dvh flex">
+      {/* Painel de marca */}
+      <div className="hidden lg:flex lg:w-2/5 bg-ink-900 text-white flex-col justify-between p-12">
+        <div>
+          <span className="text-h3 font-semibold tracking-tight">CalculosAI</span>
         </div>
+        <div className="max-w-sm">
+          <div className="h-px w-10 bg-aurum-400 mb-6" />
+          <p className="text-h2 font-medium leading-snug text-white">
+            Contabilidade com a precisão que seu escritório exige.
+          </p>
+          <p className="text-body text-ink-300 mt-4">
+            Lançamentos, DRE, conciliação bancária e gestão de clientes em um único lugar.
+          </p>
+        </div>
+        <p className="text-xs text-ink-400">© {new Date().getFullYear()} CalculosAI</p>
+      </div>
 
-        {/* Card */}
-        <div className="card p-6">
+      {/* Formulário */}
+      <div className="flex-1 flex items-center justify-center bg-graphite-50 p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <h1 className="text-h1 text-graphite-900">Entrar</h1>
+            <p className="text-body text-graphite-500 mt-1">Acesse a conta do seu escritório</p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              id="slug"
+              name="slug"
+              type="text"
+              autoComplete="off"
+              placeholder="minha-empresa"
+              label="Identificador da empresa"
+              value={form.slug}
+              onChange={handleChange}
+            />
 
-            <div>
-              <label className="input-label" htmlFor="slug">
-                Identificador da empresa
-              </label>
-              <input
-                id="slug"
-                name="slug"
-                type="text"
-                autoComplete="off"
-                placeholder="minha-empresa"
-                value={form.slug}
-                onChange={handleChange}
-                className="input-field"
-              />
-            </div>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="voce@empresa.com"
+              label="E-mail"
+              value={form.email}
+              onChange={handleChange}
+            />
 
-            <div>
-              <label className="input-label" htmlFor="email">
-                E-mail
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="voce@empresa.com"
-                value={form.email}
-                onChange={handleChange}
-                className="input-field"
-              />
-            </div>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              label="Senha"
+              value={form.password}
+              onChange={handleChange}
+              error={error || undefined}
+            />
 
-            <div>
-              <label className="input-label" htmlFor="password">
-                Senha
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={handleChange}
-                className="input-field"
-              />
-            </div>
-
-            {error && <p className="form-error">{error}</p>}
-
-            <button type="submit" className="btn-primary mt-2" disabled={loading}>
+            <Button type="submit" size="lg" className="w-full mt-2" loading={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-
+            </Button>
           </form>
+
+          <p className="text-center text-sm text-graphite-500 mt-8">
+            Ainda não tem conta?{' '}
+            <Link to="/cadastro" className="text-ink-600 hover:text-ink-700 font-medium">
+              Criar conta
+            </Link>
+          </p>
         </div>
-
-        {/* Link para cadastro */}
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Ainda não tem conta?{' '}
-          <Link to="/cadastro" className="text-ink-600 hover:text-ink-700 font-medium">
-            Criar conta
-          </Link>
-        </p>
-
       </div>
     </div>
   )

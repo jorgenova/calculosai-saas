@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/api/client'
+import { AppShell, Card, Input, Button, Badge, Spinner } from '@/design-system'
 
 type Tenant = {
   id: string
@@ -71,88 +72,66 @@ export function OwnerDashboard() {
 
   if (loadingTenant) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <span className="text-sm text-gray-400">Carregando...</span>
+      <div className="min-h-dvh flex items-center justify-center bg-graphite-50">
+        <Spinner className="h-6 w-6 text-ink-400" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50">
-
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <span className="font-semibold text-gray-900">{tenant?.name}</span>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-
-      {/* Conteúdo */}
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-
-        {/* Dados da empresa */}
-        <div className="card p-6">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">
-            Dados da empresa
-          </h2>
-          <div className="space-y-3">
+    <AppShell tenantName={tenant?.name} roleLabel="Proprietário" onLogout={handleLogout} pageTitle="Visão geral">
+      <Card>
+        <Card.Header>
+          <h2 className="text-h3 text-graphite-900">Dados da empresa</h2>
+        </Card.Header>
+        <Card.Body>
+          <dl className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <p className="text-xs text-gray-400">Nome</p>
-              <p className="text-sm font-medium text-gray-900">{tenant?.name}</p>
+              <dt className="text-xs text-graphite-500">Nome</dt>
+              <dd className="text-sm font-medium text-graphite-900 mt-0.5">{tenant?.name}</dd>
             </div>
             <div>
-              <p className="text-xs text-gray-400">CNPJ</p>
-              <p className="text-sm font-medium text-gray-900 font-mono">
+              <dt className="text-xs text-graphite-500">CNPJ</dt>
+              <dd className="text-sm font-medium text-graphite-900 font-mono mt-0.5">
                 {tenant?.cnpj ? formatCnpj(tenant.cnpj) : '—'}
-              </p>
+              </dd>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Identificador</p>
-              <p className="text-sm font-medium text-ink-600 font-mono">{tenant?.slug}</p>
+              <dt className="text-xs text-graphite-500">Identificador</dt>
+              <dd className="text-sm font-medium text-ink-600 font-mono mt-0.5">{tenant?.slug}</dd>
             </div>
-          </div>
-        </div>
+          </dl>
+        </Card.Body>
+      </Card>
 
-        {/* Convidar atendente */}
-        <div className="card p-6">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">
-            Convidar atendente
-          </h2>
-          <form onSubmit={handleInvite} className="space-y-3">
-            <div>
-              <label className="input-label" htmlFor="inviteEmail">
-                E-mail do atendente
-              </label>
-              <input
-                id="inviteEmail"
-                type="email"
-                placeholder="atendente@empresa.com"
-                value={inviteEmail}
-                onChange={e => {
-                  setInviteEmail(e.target.value)
-                  setInviteError('')
-                  setInviteSuccess('')
-                }}
-                className="input-field"
-              />
-            </div>
+      <Card>
+        <Card.Header>
+          <h2 className="text-h3 text-graphite-900">Convidar atendente</h2>
+        </Card.Header>
+        <Card.Body>
+          <form onSubmit={handleInvite} className="space-y-4 max-w-sm">
+            <Input
+              id="inviteEmail"
+              type="email"
+              label="E-mail do atendente"
+              placeholder="atendente@empresa.com"
+              value={inviteEmail}
+              onChange={e => {
+                setInviteEmail(e.target.value)
+                setInviteError('')
+                setInviteSuccess('')
+              }}
+              error={inviteError || undefined}
+            />
 
-            {inviteError && <p className="form-error">{inviteError}</p>}
-            {inviteSuccess && <p className="text-xs text-green-600 mt-1">{inviteSuccess}</p>}
+            {inviteSuccess && <Badge status="success">{inviteSuccess}</Badge>}
 
-            <button type="submit" className="btn-primary" disabled={inviteLoading}>
+            <Button type="submit" loading={inviteLoading}>
               {inviteLoading ? 'Enviando...' : 'Enviar convite'}
-            </button>
+            </Button>
           </form>
-        </div>
-
-      </main>
-    </div>
+        </Card.Body>
+      </Card>
+    </AppShell>
   )
 }
