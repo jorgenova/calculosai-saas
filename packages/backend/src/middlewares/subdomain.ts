@@ -1,26 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { db } from '../config/database';
 
-function isIpAddress(host: string): boolean {
-  return /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host)
-}
-
+// Deteccao de slug por subdominio (host.split('.')[0]) fica desativada por
+// enquanto: nao existe DNS coringa nem subdominio real de tenant configurado
+// ainda, e contar partes do host da erro falso-positivo em qualquer host de
+// 3 partes que nao seja um subdominio de tenant de verdade — por exemplo o
+// hostname gerado por um Cloudflare Quick Tunnel (palavra.trycloudflare.com).
+// Quando o roteamento por subdominio for implementado de verdade, reintroduzir
+// isso amarrado ao dominio real do produto (ex.: host.endsWith('.' + BASE_DOMAIN)),
+// nao a uma contagem generica de pontos.
 export async function subdomainMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   try {
-    const host = req.headers.host || '';
-    const parts = host.split('.');
-
-    let slug: string | undefined;
-
-    if (req.body?.slug) {
-      slug = req.body.slug;
-    } else if (!isIpAddress(host) && parts.length >= 3) {
-      slug = parts[0];
-    }
+    const slug: string | undefined = req.body?.slug;
 
     if (!slug) {
       return next();
