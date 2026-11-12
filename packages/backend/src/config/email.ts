@@ -1,8 +1,21 @@
 import { Resend } from 'resend';
+import {
+  exposeMockInviteToken,
+  externalServicesMocked,
+} from './externalServices';
 
-export const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = externalServicesMocked
+  ? null
+  : new Resend(process.env.RESEND_API_KEY);
 
 export async function sendWelcomeEmail(to: string, tenantName: string, slug: string) {
+  if (externalServicesMocked) {
+    console.log(`[mock] E-mail de boas-vindas para ${to} (${tenantName}, slug: ${slug})`);
+    return;
+  }
+
+  if (!resend) throw new Error('Cliente Resend nao configurado');
+
   await resend.emails.send({
     from: 'noreply@seudominio.com.br',
     to,
@@ -16,6 +29,22 @@ export async function sendWelcomeEmail(to: string, tenantName: string, slug: str
 }
 
 export async function sendInviteEmail(to: string, tenantName: string, slug: string, token: string) {
+  if (externalServicesMocked) {
+    if (exposeMockInviteToken) {
+      console.log(
+        `[mock] Convite para ${to}: http://localhost:5173/convite?token=${token} ` +
+        `(tenant: ${tenantName}, slug: ${slug})`
+      );
+    } else {
+      console.log(
+        `[mock] Convite simulado para ${to} (tenant: ${tenantName}, slug: ${slug}; token oculto)`
+      );
+    }
+    return;
+  }
+
+  if (!resend) throw new Error('Cliente Resend nao configurado');
+
   await resend.emails.send({
     from: 'noreply@seudominio.com.br',
     to,

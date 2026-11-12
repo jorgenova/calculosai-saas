@@ -10,6 +10,7 @@ import onboardingRoutes from './routes/onboarding';
 import inviteRoutes from './routes/invite';
 import conviteRoutes from './routes/convite';
 import webhookRoutes from './routes/webhooks';
+import { externalServicesMode } from './config/externalServices';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,6 +58,7 @@ app.use('/invite', inviteRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`External services mode: ${externalServicesMode}`);
 });
 
 export default app;
