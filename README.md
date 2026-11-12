@@ -65,12 +65,45 @@ Abra `SETUP-CHECKLIST.md` e execute cada etapa:
 ## Rodar localmente
 
 ```bash
+# Banco PostgreSQL local isolado (porta 5433)
+npm run test:db:start
+npm run test:db:verify
+
 # Backend (porta 3000)
-npm run dev:backend
+npm run dev:backend:test
 
 # Frontend (porta 5173 — proxy /api → localhost:3000 já configurado)
 npm run dev:frontend
 ```
+
+O banco de testes usa PostgreSQL 16, fica em `.test-data/` e reproduz as roles,
+grants e policies RLS documentadas para produção. As credenciais são apenas
+locais e estão em `packages/backend/.env.test` (ignorado pelo Git); o arquivo
+`.env.test.example` serve como modelo.
+
+Nesse ambiente, `EXTERNAL_SERVICES_MODE=mock` evita chamadas reais ao Upstash,
+Stripe e Resend. Rate limits são ignorados, IDs de cliente/assinatura são
+simulados e os e-mails aparecem no console do backend. O modo padrão continua
+sendo `live`, portanto produção só usa mocks se a variável for definida
+explicitamente.
+
+Por segurança, o backend recusa o modo mock fora de `NODE_ENV=test` ou
+`development` e também quando `DATABASE_URL_APP` não aponta para `localhost`.
+Tokens de convite ficam ocultos nos logs por padrão; para testes manuais locais,
+use `MOCK_EXPOSE_INVITE_TOKEN=true` apenas no `.env.test` ignorado pelo Git.
+
+Comandos de manutenção:
+
+```bash
+npm run test:db:status  # mostra se o servidor está ativo
+npm run test:db:reset   # recria somente o banco descartável calculosai_test
+npm run test:db:stop    # encerra o PostgreSQL local
+```
+
+> O histórico atual de migrations não reconstrói o schema do zero:
+> `0001_baseline` é vazio e `0002` pressupõe tabelas existentes. Por isso o
+> ambiente local usa `scripts/test-db/bootstrap.sql`, derivado do schema e das
+> policies canônicas em `docs/cerebro-do-projeto.md`.
 
 Variáveis necessárias no backend (via Doppler ou `.env`):
 `DATABASE_URL`, `DATABASE_URL_APP`, `JWT_SECRET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLIC_KEY`

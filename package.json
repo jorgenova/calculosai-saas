@@ -6,7 +6,13 @@
   ],
   "scripts": {
     "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:backend:test": "DOTENV_CONFIG_PATH=.env.test npm run dev --workspace=packages/backend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "test:db:start": "bash scripts/test-db.sh start",
+    "test:db:stop": "bash scripts/test-db.sh stop",
+    "test:db:status": "bash scripts/test-db.sh status",
+    "test:db:reset": "bash scripts/test-db.sh reset",
+    "test:db:verify": "node --env-file-if-exists=packages/backend/.env.test scripts/verify-test-db.js",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "typecheck:backend": "npm run typecheck --workspace=packages/backend",
     "typecheck:frontend": "npm run typecheck --workspace=packages/frontend",
