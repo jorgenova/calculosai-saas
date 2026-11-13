@@ -103,6 +103,30 @@
 
     main { padding: 34px 0 64px; }
 
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 20px;
+      padding: 5px;
+      width: fit-content;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .tab-button {
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      padding: 9px 16px;
+    }
+
+    .tab-button:hover { background: #eef1f5; }
+    .tab-button[aria-selected="true"] { background: var(--navy-900); color: white; }
+    .tab-panel[hidden] { display: none; }
+
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -185,6 +209,49 @@
     .note ul { margin: 0; padding-left: 18px; }
     .note li + li { margin-top: 5px; }
 
+    .dictionary-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dictionary-toolbar label { color: var(--navy-900); font-size: 13px; font-weight: 700; }
+    .dictionary-toolbar input {
+      width: min(440px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: white;
+      color: var(--ink);
+      font: inherit;
+      font-size: 14px;
+      padding: 10px 12px;
+    }
+
+    .dictionary-content { padding: 20px; }
+    .dictionary-table + .dictionary-table { margin-top: 22px; }
+    .dictionary-table h3 { margin: 0; color: var(--navy-900); font-size: 17px; }
+    .dictionary-table > p { margin: 4px 0 12px; color: var(--muted); font-size: 13px; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+    .table-scroll table { width: 100%; min-width: 920px; border-collapse: collapse; background: white; }
+    .table-scroll th,
+    .table-scroll td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .table-scroll tr:last-child td { border-bottom: 0; }
+    .table-scroll th {
+      background: #f3f5f8;
+      color: var(--navy-900);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .table-scroll td { color: var(--muted); font-size: 13px; }
+    .table-scroll td:first-child { color: var(--navy-900); font-family: "SFMono-Regular", Consolas, monospace; font-weight: 700; }
+    .table-scroll td:nth-child(2),
+    .table-scroll td:nth-child(3) { white-space: nowrap; }
+    .dictionary-empty { margin: 0; padding: 34px; color: var(--muted); text-align: center; }
+
     code {
       border-radius: 5px;
       background: #eef1f5;
@@ -217,6 +284,8 @@
       .notes { grid-template-columns: 1fr; }
       .panel-header { align-items: start; flex-direction: column; }
       .legend { justify-content: start; }
+      .dictionary-toolbar { align-items: stretch; flex-direction: column; }
+      .dictionary-toolbar input { width: 100%; }
     }
 
     @media (max-width: 520px) {
@@ -232,6 +301,9 @@
       header { background: white; color: var(--navy-950); border-bottom: 2px solid var(--gold-500); }
       .subtitle { color: var(--muted); }
       .actions { display: none; }
+      .tabs, .dictionary-toolbar { display: none; }
+      .tab-panel[hidden] { display: block; }
+      #dictionary-panel { margin-top: 24px; }
       main { width: 100%; padding-top: 20px; }
       .summary-card, .panel, .note { box-shadow: none; }
       .diagram-wrap { min-height: 0; overflow: visible; background: white; }
@@ -277,6 +349,17 @@
         <span>Isolamento por Tenant e, nos dados operacionais, por Office.</span>
       </div>
     </section>
+
+    <nav class="tabs" role="tablist" aria-label="Visualizações do modelo de dados">
+      <button class="tab-button" type="button" role="tab" id="diagram-tab" aria-controls="diagram-panel" aria-selected="true">
+        Diagrama
+      </button>
+      <button class="tab-button" type="button" role="tab" id="dictionary-tab" aria-controls="dictionary-panel" aria-selected="false">
+        Dicionário de dados
+      </button>
+    </nav>
+
+    <div class="tab-panel" id="diagram-panel" role="tabpanel" aria-labelledby="diagram-tab">
 
     <section class="panel" aria-labelledby="diagram-title">
       <div class="panel-header">
@@ -421,15 +504,148 @@ erDiagram
         </ul>
       </article>
     </section>
+    </div>
+
+    <section class="panel tab-panel" id="dictionary-panel" role="tabpanel" aria-labelledby="dictionary-tab" hidden>
+      <div class="panel-header">
+        <div>
+          <h2>Dicionário de dados</h2>
+          <p>Descrição funcional das 59 colunas persistidas nas oito tabelas do modelo.</p>
+        </div>
+        <div class="legend" aria-label="Origem dos metadados">
+          <span>Sincronizado com COMMENT ON COLUMN</span>
+          <span>Descrições com 100+ caracteres</span>
+        </div>
+      </div>
+      <div class="dictionary-toolbar">
+        <label for="dictionary-search">Filtrar tabelas e colunas</label>
+        <input id="dictionary-search" type="search" placeholder="Ex.: office_id, status ou período tributário" autocomplete="off">
+      </div>
+      <div class="dictionary-content" id="dictionary-content"></div>
+    </section>
 
     <footer>
       Fonte de verdade: <code>packages/backend/prisma/schema.prisma</code> ·
-      Modelo atualizado para a change <code>add-office-hierarchy</code>.
+      Metadados persistidos pela migration <code>0006_add_schema_documentation</code>.
     </footer>
   </main>
 
+  <script type="application/json" id="data-dictionary-source">
+  [
+    {
+      "name": "tenants",
+      "description": "Representa a conta contratante, responsável pela assinatura, autenticação e fronteira principal de isolamento dos dados.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único da conta contratante, gerado automaticamente como UUID e utilizado como raiz de isolamento em todas as relações subordinadas do sistema." },
+        { "name": "name", "type": "text", "constraints": "Obrigatório", "description": "Nome legível da conta usado para identificação administrativa do Tenant, exibição nas interfaces internas e composição dos dados básicos apresentados ao proprietário." },
+        { "name": "slug", "type": "text", "constraints": "Único · opcional", "description": "Identificador textual opcional e globalmente único usado para localizar a conta por subdomínio ou contexto de login, sem substituir o identificador técnico interno." },
+        { "name": "status", "type": "tenant_status", "constraints": "Obrigatório · pending_payment", "description": "Estado do ciclo comercial da conta, determinando se o Tenant aguarda pagamento, está ativo ou expirado e se seus usuários podem autenticar e operar recursos." },
+        { "name": "stripe_customer_id", "type": "text", "constraints": "Opcional", "description": "Identificador do cliente correspondente no Stripe, utilizado para correlacionar a conta interna com cobranças, métodos de pagamento e eventos do provedor financeiro." },
+        { "name": "stripe_subscription_id", "type": "text", "constraints": "Opcional", "description": "Identificador da assinatura correspondente no Stripe, usado para acompanhar vigência, renovação, cancelamento e confirmação do pagamento associado ao Tenant." },
+        { "name": "created_at", "type": "timestamptz", "constraints": "Obrigatório · now()", "description": "Data e hora com fuso em que a conta foi registrada no banco, preservada para auditoria, ordenação histórica e análise do processo de aquisição de clientes." }
+      ]
+    },
+    {
+      "name": "users",
+      "description": "Armazena as identidades autenticáveis de proprietários e atendentes pertencentes a uma única conta contratante.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único do usuário, gerado automaticamente como UUID e empregado em autenticação, auditoria e vínculos de acesso aos escritórios da conta." },
+        { "name": "tenant_id", "type": "text", "constraints": "FK tenants · obrigatório", "description": "Identificador da conta à qual o usuário pertence, compondo a fronteira de isolamento que impede autenticação ou associação de acessos entre Tenants diferentes." },
+        { "name": "name", "type": "text", "constraints": "Obrigatório", "description": "Nome completo ou nome preferencial do usuário, apresentado nas interfaces e registros de responsabilidade para que ações administrativas sejam atribuídas corretamente." },
+        { "name": "email", "type": "text", "constraints": "Único por Tenant · obrigatório", "description": "Endereço eletrônico utilizado como credencial de login e destino de comunicações, único dentro do Tenant embora possa ser reutilizado legitimamente em outra conta." },
+        { "name": "password", "type": "text", "constraints": "Obrigatório", "description": "Hash seguro da senha definido pelo usuário para autenticação; nunca deve conter senha em texto puro nem ser devolvido por APIs, logs ou consultas de apresentação." },
+        { "name": "role", "type": "role", "constraints": "owner ou attendant", "description": "Perfil global do usuário dentro do Tenant, distinguindo o proprietário com acesso a todos os escritórios do atendente sujeito a autorizações explícitas." },
+        { "name": "created_at", "type": "timestamptz", "constraints": "Obrigatório · now()", "description": "Data e hora com fuso em que a identidade foi criada, usada como referência de auditoria, ordenação administrativa e acompanhamento da entrada de usuários." },
+        { "name": "updated_at", "type": "timestamptz", "constraints": "Obrigatório · atualização automática", "description": "Data e hora com fuso da alteração persistida mais recente no usuário, atualizada automaticamente para apoiar auditorias e sincronizações de dados cadastrais." }
+      ]
+    },
+    {
+      "name": "invitations",
+      "description": "Controla convites emitidos pelo proprietário para ingresso de novos atendentes em uma conta e em seus escritórios.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único do convite, gerado automaticamente como UUID e usado para relacionar os escritórios que serão concedidos após o aceite válido." },
+        { "name": "tenant_id", "type": "text", "constraints": "FK tenants · obrigatório", "description": "Identificador da conta responsável pela emissão do convite, garantindo que aceite, usuário criado e escritórios concedidos permaneçam no mesmo Tenant." },
+        { "name": "email", "type": "text", "constraints": "Obrigatório", "description": "Endereço eletrônico da pessoa convidada, usado para entrega e validação do convite antes da criação ou associação definitiva da identidade de usuário." },
+        { "name": "token_hash", "type": "text", "constraints": "Único · obrigatório", "description": "Hash irreversível e globalmente único do token enviado ao convidado, permitindo validar o aceite sem armazenar no banco o segredo utilizável em texto puro." },
+        { "name": "status", "type": "invitation_status", "constraints": "Obrigatório · pending", "description": "Estado do convite durante seu ciclo de vida, indicando se ainda está pendente, se já foi aceito ou se expirou e não pode mais criar acesso." },
+        { "name": "invited_by_user_id", "type": "text", "constraints": "Obrigatório", "description": "Identificador do usuário proprietário que iniciou o convite, preservado para rastreabilidade administrativa e eventual exibição do responsável pela concessão." },
+        { "name": "created_at", "type": "timestamptz", "constraints": "Obrigatório · now()", "description": "Data e hora com fuso em que o convite foi emitido, usada para auditoria, ordenação e cálculo consistente da janela disponível para aceite." },
+        { "name": "expires_at", "type": "timestamptz", "constraints": "Obrigatório", "description": "Data e hora com fuso que encerra a validade do convite, após a qual o token deve ser rejeitado mesmo que seu status ainda não tenha sido atualizado." }
+      ]
+    },
+    {
+      "name": "offices",
+      "description": "Representa cada escritório ou empresa contábil operada de forma isolada dentro de uma mesma conta contratante.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único do escritório, gerado automaticamente como UUID e utilizado para delimitar todos os dados operacionais vinculados a essa empresa contábil." },
+        { "name": "tenant_id", "type": "text", "constraints": "FK tenants · obrigatório", "description": "Identificador da conta proprietária do escritório, formando com o id as chaves compostas que bloqueiam associações acidentais entre Tenants diferentes." },
+        { "name": "name", "type": "text", "constraints": "Obrigatório", "description": "Nome empresarial ou nome de exibição do escritório contábil, usado para seleção do contexto operacional e identificação clara nas interfaces da conta." },
+        { "name": "cnpj", "type": "text", "constraints": "Único · obrigatório", "description": "Cadastro Nacional da Pessoa Jurídica do escritório, armazenado de forma normalizada e globalmente único para identificar a empresa contábil responsável." },
+        { "name": "created_at", "type": "timestamptz", "constraints": "Obrigatório · now()", "description": "Data e hora com fuso em que o escritório foi cadastrado, preservada para auditoria, ordenação e acompanhamento da expansão operacional da conta." },
+        { "name": "updated_at", "type": "timestamptz", "constraints": "Obrigatório · atualização automática", "description": "Data e hora com fuso da última alteração persistida no escritório, atualizada automaticamente para indicar a atualidade de seus dados cadastrais." }
+      ]
+    },
+    {
+      "name": "office_accesses",
+      "description": "Registra autorizações explícitas que permitem a atendentes trabalhar em um ou mais escritórios do mesmo Tenant.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único da autorização de acesso, gerado automaticamente como UUID para permitir auditoria e manutenção individual do vínculo." },
+        { "name": "tenant_id", "type": "text", "constraints": "Escopo composto · obrigatório", "description": "Identificador da conta comum ao usuário e ao escritório autorizados, usado nas chaves compostas para impedir concessões que atravessem fronteiras de Tenant." },
+        { "name": "user_id", "type": "text", "constraints": "FK users · único com office_id", "description": "Identificador do atendente que recebe a autorização explícita, validado dentro do mesmo Tenant e combinado ao escritório para evitar acessos duplicados." },
+        { "name": "office_id", "type": "text", "constraints": "FK offices · único com user_id", "description": "Identificador do escritório ao qual o atendente poderá acessar, sempre pertencente ao mesmo Tenant informado e único em conjunto com o usuário autorizado." },
+        { "name": "created_at", "type": "timestamptz", "constraints": "Obrigatório · now()", "description": "Data e hora com fuso em que a autorização foi concedida, mantida para rastrear quando o atendente passou a poder operar no escritório correspondente." }
+      ]
+    },
+    {
+      "name": "invitation_offices",
+      "description": "Relaciona um convite pendente aos escritórios cujo acesso será atribuído ao atendente depois da aceitação.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único do vínculo entre convite e escritório, gerado automaticamente para permitir tratamento e auditoria granular da concessão futura." },
+        { "name": "tenant_id", "type": "text", "constraints": "Escopo composto · obrigatório", "description": "Identificador da conta compartilhada pelo convite e pelo escritório, compondo as referências que impossibilitam relacionar registros de Tenants distintos." },
+        { "name": "invitation_id", "type": "text", "constraints": "FK invitations · único com office_id", "description": "Identificador do convite que receberá o escritório durante o aceite, validado no mesmo Tenant e combinado ao office_id para impedir duplicidade." },
+        { "name": "office_id", "type": "text", "constraints": "FK offices · único com invitation_id", "description": "Identificador do escritório que será concedido ao futuro atendente, restrito ao Tenant do convite e único dentro da lista de acessos planejados." }
+      ]
+    },
+    {
+      "name": "companies",
+      "description": "Mantém as empresas ou pessoas atendidas por um escritório, com isolamento operacional e ciclo de encerramento próprio.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único da empresa atendida, gerado automaticamente como UUID e usado em relações operacionais dentro do escritório responsável." },
+        { "name": "tenant_id", "type": "text", "constraints": "Escopo composto · obrigatório", "description": "Identificador da conta que contém o escritório responsável pela empresa, utilizado nas chaves compostas e políticas de segurança para reforçar isolamento." },
+        { "name": "office_id", "type": "text", "constraints": "FK offices · obrigatório", "description": "Identificador do único escritório responsável pelo atendimento da empresa, definindo a fronteira operacional para consultas, alterações e regras de acesso." },
+        { "name": "identification_type", "type": "identification_type", "constraints": "cpf ou cnpj", "description": "Tipo do documento fiscal armazenado em tax_id, distinguindo pessoa física de pessoa jurídica e compondo a regra de unicidade dentro do escritório." },
+        { "name": "tax_id", "type": "text", "constraints": "Único por Office e tipo", "description": "Número normalizado do CPF ou CNPJ da empresa atendida, único por tipo dentro do escritório, mas reutilizável em outro Office independente." },
+        { "name": "name", "type": "text", "constraints": "Obrigatório", "description": "Nome civil, razão social ou nome de exibição da empresa atendida, utilizado nas interfaces, pesquisas e documentos operacionais do escritório." },
+        { "name": "status", "type": "company_status", "constraints": "Obrigatório · active", "description": "Estado do relacionamento de atendimento, indicando atividade normal, solicitação de encerramento pendente ou vínculo encerrado após decisão autorizada." },
+        { "name": "requested_by_user_id", "type": "text", "constraints": "Opcional", "description": "Identificador do atendente que solicitou o encerramento do vínculo, preenchido quando aplicável para preservar autoria e permitir decisão posterior do proprietário." },
+        { "name": "requested_at", "type": "timestamptz", "constraints": "Opcional", "description": "Data e hora com fuso em que o encerramento foi solicitado, permitindo medir o tempo de análise e reconstruir cronologicamente o fluxo de aprovação." },
+        { "name": "decided_by_user_id", "type": "text", "constraints": "Opcional", "description": "Identificador do proprietário que aprovou ou rejeitou a solicitação de encerramento, mantido como evidência da decisão administrativa realizada." },
+        { "name": "decided_at", "type": "timestamptz", "constraints": "Opcional", "description": "Data e hora com fuso em que a solicitação recebeu decisão, usada em auditorias e na reconstrução do histórico de encerramento ou continuidade." },
+        { "name": "created_at", "type": "timestamptz", "constraints": "Obrigatório · now()", "description": "Data e hora com fuso do cadastro inicial da empresa no escritório, preservada para auditoria, ordenação e análises da carteira de atendimento." },
+        { "name": "updated_at", "type": "timestamptz", "constraints": "Obrigatório · atualização automática", "description": "Data e hora com fuso da alteração persistida mais recente na empresa, atualizada automaticamente para sinalizar a atualidade do cadastro e do estado." }
+      ]
+    },
+    {
+      "name": "company_tax_periods",
+      "description": "Registra o histórico temporal dos regimes tributários adotados por cada empresa atendida sem sobrescrever períodos anteriores.",
+      "columns": [
+        { "name": "id", "type": "text", "constraints": "PK · UUID automático", "description": "Identificador técnico único do período tributário, gerado automaticamente como UUID para manter histórico independente e referências estáveis ao registro." },
+        { "name": "tenant_id", "type": "text", "constraints": "Escopo composto · obrigatório", "description": "Identificador da conta à qual pertence a empresa do período, compondo a chave de escopo que impede referências tributárias entre Tenants diferentes." },
+        { "name": "office_id", "type": "text", "constraints": "Escopo composto · obrigatório", "description": "Identificador do escritório responsável pela empresa durante o período, reforçando isolamento operacional e integridade da referência composta." },
+        { "name": "company_id", "type": "text", "constraints": "FK companies · obrigatório", "description": "Identificador da empresa à qual o período tributário pertence, validado em conjunto com Tenant e Office para evitar histórico associado ao contexto errado." },
+        { "name": "tax_regime", "type": "tax_regime", "constraints": "Obrigatório", "description": "Regime tributário vigente no intervalo, limitado aos valores suportados para permitir cálculos, obrigações e regras fiscais consistentes no domínio." },
+        { "name": "start_date", "type": "date", "constraints": "Obrigatório", "description": "Data civil de início da vigência do regime tributário, sem componente de horário, usada para ordenar períodos e determinar a regra aplicável em cada competência." },
+        { "name": "end_date", "type": "date", "constraints": "Opcional · posterior ao início", "description": "Data civil final da vigência do regime, nula apenas para o período atual e nunca anterior à data inicial, preservando uma linha do tempo tributária válida." },
+        { "name": "created_at", "type": "timestamptz", "constraints": "Obrigatório · now()", "description": "Data e hora com fuso em que o período foi registrado no sistema, preservada para auditoria mesmo quando a data de vigência informada for retroativa." }
+      ]
+    }
+  ]
+  </script>
+
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <script>
+    const dataDictionary = JSON.parse(document.querySelector('#data-dictionary-source').textContent);
+
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
@@ -453,6 +669,88 @@ erDiagram
     });
 
     window.addEventListener('DOMContentLoaded', async () => {
+      const dictionaryContent = document.querySelector('#dictionary-content');
+      const dictionarySearch = document.querySelector('#dictionary-search');
+      const tabButtons = [...document.querySelectorAll('[role="tab"]')];
+
+      const escapeHtml = (value) => String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+
+      const renderDictionary = (searchTerm = '') => {
+        const query = searchTerm.trim().toLocaleLowerCase('pt-BR');
+        const sections = dataDictionary.flatMap((table) => {
+          const tableMatches = `${table.name} ${table.description}`.toLocaleLowerCase('pt-BR').includes(query);
+          const columns = table.columns.filter((column) => {
+            if (!query || tableMatches) return true;
+            return `${column.name} ${column.type} ${column.constraints} ${column.description}`
+              .toLocaleLowerCase('pt-BR')
+              .includes(query);
+          });
+
+          if (columns.length === 0) return [];
+
+          const rows = columns.map((column) => `
+            <tr>
+              <td>${escapeHtml(column.name)}</td>
+              <td>${escapeHtml(column.type)}</td>
+              <td>${escapeHtml(column.constraints)}</td>
+              <td>${escapeHtml(column.description)}</td>
+            </tr>
+          `).join('');
+
+          return [`
+            <article class="dictionary-table">
+              <h3>${escapeHtml(table.name)}</h3>
+              <p>${escapeHtml(table.description)}</p>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>Coluna</th><th>Tipo</th><th>Restrições</th><th>Descrição</th></tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            </article>
+          `];
+        });
+
+        dictionaryContent.innerHTML = sections.length > 0
+          ? sections.join('')
+          : '<p class="dictionary-empty">Nenhuma tabela ou coluna corresponde ao filtro informado.</p>';
+      };
+
+      const activateTab = (selectedButton, updateHash = true) => {
+        tabButtons.forEach((button) => {
+          const isSelected = button === selectedButton;
+          button.setAttribute('aria-selected', String(isSelected));
+          document.querySelector(`#${button.getAttribute('aria-controls')}`).hidden = !isSelected;
+        });
+
+        if (updateHash) history.replaceState(null, '', `#${selectedButton.getAttribute('aria-controls')}`);
+      };
+
+      tabButtons.forEach((button, index) => {
+        button.addEventListener('click', () => activateTab(button));
+        button.addEventListener('keydown', (event) => {
+          if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+          event.preventDefault();
+          const offset = event.key === 'ArrowRight' ? 1 : -1;
+          const nextButton = tabButtons[(index + offset + tabButtons.length) % tabButtons.length];
+          activateTab(nextButton);
+          nextButton.focus();
+        });
+      });
+
+      dictionarySearch.addEventListener('input', (event) => renderDictionary(event.target.value));
+      renderDictionary();
+
+      const requestedTab = tabButtons.find((button) => `#${button.getAttribute('aria-controls')}` === window.location.hash);
+      if (requestedTab) activateTab(requestedTab, false);
+
       try {
         await mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
         document.body.dataset.mermaid = 'ready';
