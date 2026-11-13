@@ -33,8 +33,8 @@ projeto.
   técnicos e mensagens de erro internas.
 - Não crie novos identificadores em português. Textos visíveis ao usuário
   podem ficar em português quando isso for requerido pelo produto.
-- Em PostgreSQL, use nomes de tabelas e colunas em inglês, sempre em letras
-  minúsculas e `snake_case`, como `client_invoices`, `created_at` e
-  `payment_status`.
+- Em PostgreSQL, use tabelas em inglês, no singular e em minúsculas, como
+  `invoice`. Use colunas em inglês, minúsculas e `snake_case`, como
+  `created_at` e `payment_status`.
 - Não renomeie estruturas existentes só para adequá-las a esta regra sem uma
   mudança planejada e uma migração compatível.

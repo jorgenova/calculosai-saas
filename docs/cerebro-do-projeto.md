@@ -108,6 +108,11 @@ sabemos montar o schema na mao.
    requests, mas o check **Branch name** ainda precisa ser marcado como
    obrigatorio nas regras de protecao da `main`. Sem isso, um merge pode ser
    concluido mesmo quando a validacao falhar.
+9. **Divida tecnica — convencao do schema PostgreSQL:** adequar as tabelas
+   existentes ao padrao atual: nomes em ingles, singular e minusculos; colunas
+   em ingles, minusculas e `snake_case`. A mudanca exige migration planejada,
+   atualizacao coordenada das queries e verificacao de compatibilidade antes de
+   ser aplicada em producao.
 
 **Continuam pendentes de sessoes anteriores (nao tocadas hoje):**
 - Job de expiracao de 7 dias (UC-03 do `tenant.md`)

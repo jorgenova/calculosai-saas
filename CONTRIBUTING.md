@@ -53,10 +53,11 @@ O conteúdo visível ao usuário (textos da interface, e-mails e documentação 
 produto) pode ser em português quando for esse o idioma definido para o
 produto.
 
-No PostgreSQL, nomes de tabelas e colunas devem ser sempre em inglês, em
-minúsculas e no formato `snake_case`. Exemplos: `client_invoices`,
-`created_at` e `payment_status`. Não use maiúsculas, espaços, hífens ou nomes
-em português no schema.
+No PostgreSQL, nomes de tabelas devem ser sempre em inglês, no singular e em
+minúsculas. Nomes de colunas devem ser sempre em inglês, em minúsculas e no
+formato `snake_case`. Exemplos: tabela `invoice`; colunas `created_at` e
+`payment_status`. Não use maiúsculas, espaços, hífens, plural em tabelas ou
+nomes em português no schema.
 
 Esta convenção vale para novos desenvolvimentos; renomeações de estruturas
 existentes devem ser planejadas separadamente para evitar migrações
