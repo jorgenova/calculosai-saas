@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { Badge } from './Badge'
 import { Button } from './Button'
 import logoSuperiorContabil from '@/assets/logo-superior-contabil.png'
+import { useOffice } from '@/contexts/OfficeContext'
 
 type NavItem = {
   label: string
@@ -15,7 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Lançamentos contábeis', comingSoon: true },
   { label: 'Notas fiscais', comingSoon: true },
   { label: 'Conciliação bancária', comingSoon: true },
-  { label: 'Clientes e equipe', comingSoon: true },
+  { label: 'Empresas e equipe', comingSoon: true },
 ]
 
 interface AppShellProps {
@@ -27,12 +28,26 @@ interface AppShellProps {
 }
 
 export function AppShell({ tenantName, roleLabel, onLogout, pageTitle, children }: AppShellProps) {
+  const { offices, activeOffice, selectOffice } = useOffice()
   return (
     <div className="min-h-dvh flex">
       <aside className="hidden md:flex md:w-60 md:flex-col bg-ink-900 text-white shrink-0">
         <div className="px-6 py-6 border-b border-ink-800">
           <img src={logoSuperiorContabil} alt="Superior Contábil" className="h-6 w-auto" />
           {tenantName && <p className="text-xs text-ink-400 mt-2 truncate">{tenantName}</p>}
+          {offices.length > 0 && (
+            <label className="block mt-4 text-[10px] uppercase tracking-wide text-ink-400">
+              Escritório
+              <select
+                className="mt-1 w-full rounded-md border border-ink-700 bg-ink-800 px-2 py-2 text-xs text-white"
+                value={activeOffice?.id ?? ''}
+                onChange={event => selectOffice(event.target.value)}
+              >
+                <option value="" disabled>Selecione</option>
+                {offices.map(office => <option key={office.id} value={office.id}>{office.name}</option>)}
+              </select>
+            </label>
+          )}
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -64,7 +79,10 @@ export function AppShell({ tenantName, roleLabel, onLogout, pageTitle, children 
 
       <div className="flex-1 flex flex-col bg-graphite-50 min-w-0">
         <header className="md:hidden bg-white border-b border-graphite-200 px-4 h-14 flex items-center justify-between">
-          <span className="font-semibold text-graphite-900">{tenantName ?? 'Superior Contábil'}</span>
+          <div>
+            <span className="font-semibold text-graphite-900">{tenantName ?? 'Superior Contábil'}</span>
+            {activeOffice && <p className="text-xs text-graphite-500">{activeOffice.name}</p>}
+          </div>
           <button onClick={onLogout} className="text-sm text-graphite-500 hover:text-graphite-700">
             Sair
           </button>

@@ -6,7 +6,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "migrate:deploy": "prisma migrate deploy"
+    "migrate:deploy": "prisma migrate deploy",
+    "test": "npm run build && node --test tests/*.test.cjs"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",

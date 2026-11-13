@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Modelo de dados do Superior Contábil: Tenant, Office, usuários e empresas atendidas.">
+  <title>Modelo de Dados — Superior Contábil</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy-950: #07111f;
+      --navy-900: #0c1b2e;
+      --navy-800: #142943;
+      --gold-500: #b78a2d;
+      --gold-300: #dfbd72;
+      --paper: #f7f5f0;
+      --surface: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d9dee7;
+      --success: #18765a;
+      --shadow: 0 18px 50px rgb(7 17 31 / 9%);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 90% -10%, rgb(223 189 114 / 26%), transparent 32rem),
+        var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: linear-gradient(125deg, var(--navy-950), var(--navy-800));
+      color: white;
+      border-bottom: 4px solid var(--gold-500);
+    }
+
+    .header-inner,
+    main {
+      width: min(1440px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      padding: 44px 0 38px;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 32px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--gold-300);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(32px, 4vw, 54px);
+      font-weight: 500;
+      letter-spacing: -.025em;
+      line-height: 1.06;
+    }
+
+    .subtitle {
+      max-width: 780px;
+      margin: 15px 0 0;
+      color: #cbd5e1;
+      font-size: 16px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid rgb(255 255 255 / 25%);
+      border-radius: 9px;
+      background: rgb(255 255 255 / 9%);
+      color: white;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 14px;
+    }
+
+    button:hover { background: rgb(255 255 255 / 16%); }
+
+    main { padding: 34px 0 64px; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .summary-card,
+    .panel,
+    .note {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .summary-card { padding: 17px 18px; }
+    .summary-card strong { display: block; color: var(--navy-900); font-size: 14px; }
+    .summary-card span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+    .panel { overflow: hidden; }
+
+    .panel-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    h2 { margin: 0; color: var(--navy-900); font-size: 18px; }
+    .panel-header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: end;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .legend span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 9px;
+      white-space: nowrap;
+    }
+
+    .diagram-wrap {
+      min-height: 720px;
+      padding: 26px 16px 34px;
+      overflow: auto;
+      background-image:
+        linear-gradient(rgb(12 27 46 / 3%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(12 27 46 / 3%) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .mermaid {
+      display: flex;
+      min-width: 1120px;
+      justify-content: center;
+    }
+
+    .mermaid svg { max-width: none !important; height: auto; }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .note { padding: 20px; box-shadow: none; }
+    .note h3 { margin: 0 0 8px; color: var(--navy-900); font-size: 15px; }
+    .note p, .note li { color: var(--muted); font-size: 13px; }
+    .note p { margin: 0; }
+    .note ul { margin: 0; padding-left: 18px; }
+    .note li + li { margin-top: 5px; }
+
+    code {
+      border-radius: 5px;
+      background: #eef1f5;
+      color: var(--navy-800);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: .9em;
+      padding: 2px 5px;
+    }
+
+    footer {
+      margin-top: 26px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      vertical-align: 1px;
+    }
+
+    @media (max-width: 900px) {
+      .header-inner { align-items: start; flex-direction: column; }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .notes { grid-template-columns: 1fr; }
+      .panel-header { align-items: start; flex-direction: column; }
+      .legend { justify-content: start; }
+    }
+
+    @media (max-width: 520px) {
+      .header-inner, main { width: min(100% - 24px, 1440px); }
+      .header-inner { padding-top: 32px; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .actions { width: 100%; }
+      .actions button { flex: 1; }
+    }
+
+    @media print {
+      body { background: white; }
+      header { background: white; color: var(--navy-950); border-bottom: 2px solid var(--gold-500); }
+      .subtitle { color: var(--muted); }
+      .actions { display: none; }
+      main { width: 100%; padding-top: 20px; }
+      .summary-card, .panel, .note { box-shadow: none; }
+      .diagram-wrap { min-height: 0; overflow: visible; background: white; }
+      .mermaid { min-width: 0; }
+      .mermaid svg { max-width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <p class="eyebrow">Superior Contábil · Arquitetura</p>
+        <h1>Modelo de Dados</h1>
+        <p class="subtitle">
+          Visão física do PostgreSQL após a introdução de múltiplos escritórios por conta,
+          acessos de usuários e empresas atendidas isoladas por Office.
+        </p>
+      </div>
+      <div class="actions" aria-label="Ações do documento">
+        <button type="button" id="download-svg">Baixar SVG</button>
+        <button type="button" onclick="window.print()">Imprimir</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary-grid" aria-label="Resumo do modelo">
+      <div class="summary-card">
+        <strong>Tenant = conta</strong>
+        <span>Login, assinatura e fronteira principal.</span>
+      </div>
+      <div class="summary-card">
+        <strong>Office = escritório</strong>
+        <span>Empresa contábil com CNPJ próprio.</span>
+      </div>
+      <div class="summary-card">
+        <strong>Company = empresa atendida</strong>
+        <span>CPF ou CNPJ, sempre vinculada a um Office.</span>
+      </div>
+      <div class="summary-card">
+        <strong><span class="status-dot"></span>RLS em todas as tabelas</strong>
+        <span>Isolamento por Tenant e, nos dados operacionais, por Office.</span>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="diagram-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="diagram-title">Diagrama entidade-relacionamento</h2>
+          <p>Cardinalidades representam as relações físicas; invariantes adicionais estão abaixo.</p>
+        </div>
+        <div class="legend" aria-label="Legenda">
+          <span>PK · chave primária</span>
+          <span>FK · chave estrangeira</span>
+          <span>UK · unicidade</span>
+        </div>
+      </div>
+
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+erDiagram
+  TENANTS ||--o{ USERS : "possui"
+  TENANTS ||--o{ INVITATIONS : "emite"
+  TENANTS ||--o{ OFFICES : "contém"
+  USERS ||--o{ OFFICE_ACCESSES : "recebe"
+  OFFICES ||--o{ OFFICE_ACCESSES : "autoriza"
+  INVITATIONS ||--o{ INVITATION_OFFICES : "concede"
+  OFFICES ||--o{ INVITATION_OFFICES : "é incluído"
+  OFFICES ||--o{ COMPANIES : "atende"
+  COMPANIES ||--o{ COMPANY_TAX_PERIODS : "mantém"
+
+  TENANTS {
+    string id PK
+    string name
+    string slug UK "nullable"
+    tenant_status status
+    string stripe_customer_id "nullable"
+    string stripe_subscription_id "nullable"
+    timestamptz created_at
+  }
+
+  USERS {
+    string id PK
+    string tenant_id FK
+    string name
+    string email "UK com tenant_id"
+    string password
+    role role "owner | attendant"
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  INVITATIONS {
+    string id PK
+    string tenant_id FK
+    string email
+    string token_hash UK
+    invitation_status status
+    string invited_by_user_id
+    timestamptz created_at
+    timestamptz expires_at
+  }
+
+  OFFICES {
+    string id PK
+    string tenant_id FK
+    string name
+    string cnpj UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  OFFICE_ACCESSES {
+    string id PK
+    string tenant_id FK
+    string user_id FK "UK com office_id"
+    string office_id FK
+    timestamptz created_at
+  }
+
+  INVITATION_OFFICES {
+    string id PK
+    string tenant_id FK
+    string invitation_id FK "UK com office_id"
+    string office_id FK
+  }
+
+  COMPANIES {
+    string id PK
+    string tenant_id FK
+    string office_id FK
+    identification_type identification_type "cpf | cnpj"
+    string tax_id "UK por Office e tipo"
+    string name
+    company_status status
+    string requested_by_user_id "nullable"
+    timestamptz requested_at "nullable"
+    string decided_by_user_id "nullable"
+    timestamptz decided_at "nullable"
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  COMPANY_TAX_PERIODS {
+    string id PK
+    string tenant_id FK
+    string office_id FK
+    string company_id FK
+    tax_regime tax_regime
+    date start_date
+    date end_date "nullable"
+    timestamptz created_at
+  }
+        </pre>
+      </div>
+    </section>
+
+    <section class="notes" aria-label="Invariantes e regras do modelo">
+      <article class="note">
+        <h3>Hierarquia e usuários</h3>
+        <ul>
+          <li>Um Tenant representa a conta contratante e deve possuir ao menos um Office.</li>
+          <li>Existe no máximo um usuário <code>owner</code> por Tenant.</li>
+          <li>O Owner acessa todos os Offices implicitamente.</li>
+          <li>Somente Atendentes possuem linhas em <code>office_accesses</code>.</li>
+        </ul>
+      </article>
+
+      <article class="note">
+        <h3>Empresas atendidas</h3>
+        <ul>
+          <li>Cada Company pertence a exatamente um Office.</li>
+          <li>CPF/CNPJ é único por Office e tipo de identificação.</li>
+          <li>O mesmo documento pode existir em Offices diferentes.</li>
+          <li>Cada Company mantém seu próprio histórico tributário.</li>
+        </ul>
+      </article>
+
+      <article class="note">
+        <h3>Isolamento e integridade</h3>
+        <ul>
+          <li>Foreign keys compostas impedem associações entre Tenants.</li>
+          <li>O contexto operacional usa <code>app.current_office</code>.</li>
+          <li>RLS combina Tenant, usuário, papel e Office ativo.</li>
+          <li>Há no máximo um período tributário vigente por Company.</li>
+        </ul>
+      </article>
+    </section>
+
+    <footer>
+      Fonte de verdade: <code>packages/backend/prisma/schema.prisma</code> ·
+      Modelo atualizado para a change <code>add-office-hierarchy</code>.
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ffffff',
+        primaryTextColor: '#172033',
+        primaryBorderColor: '#b78a2d',
+        lineColor: '#667085',
+        secondaryColor: '#eef1f5',
+        tertiaryColor: '#f7f5f0',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+      },
+      er: {
+        diagramPadding: 28,
+        entityPadding: 16,
+        layoutDirection: 'TB',
+        minEntityWidth: 150,
+        minEntityHeight: 70
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        await mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+        document.body.dataset.mermaid = 'ready';
+      } catch (error) {
+        const diagram = document.querySelector('.mermaid');
+        diagram.textContent = `Não foi possível renderizar o diagrama Mermaid: ${error.message}`;
+        document.body.dataset.mermaid = 'error';
+        console.error(error);
+      }
+
+      document.querySelector('#download-svg').addEventListener('click', () => {
+        const svg = document.querySelector('.mermaid svg');
+        if (!svg) return;
+        const source = new XMLSerializer().serializeToString(svg);
+        const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'superior-contabil-data-model.svg';
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+    });
+  </script>
+</body>
+</html>

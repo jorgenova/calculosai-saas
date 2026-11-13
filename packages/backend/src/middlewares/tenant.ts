@@ -1,6 +1,5 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth';
-import { db } from '../config/database';
 
 export async function tenantMiddleware(
   req: AuthRequest,
@@ -11,25 +10,11 @@ export async function tenantMiddleware(
     const tenantId = req.user?.tenantId || (req as any).tenantId;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Tenant nao identificado' });
+      return res.status(401).json({ error: 'Tenant was not identified' });
     }
-
-    await db.query('BEGIN');
-    await db.query(
-      'SELECT set_config($1, $2, true)',
-      ['app.current_tenant', tenantId]
-    );
-
-    res.on('finish', async () => {
-      await db.query('COMMIT').catch(() => {});
-    });
-
-    res.on('close', async () => {
-      await db.query('ROLLBACK').catch(() => {});
-    });
 
     next();
   } catch {
-    return res.status(500).json({ error: 'Erro interno' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

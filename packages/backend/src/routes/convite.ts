@@ -3,7 +3,8 @@ import { acceptInvite } from '../controllers/inviteController';
 
 const router = Router();
 
-// Publico: quem aceita um convite ainda nao tem conta (docs/specs/tenant.md, UC-06)
+// Public: users accepting an invitation do not have an account yet.
 router.post('/aceitar', acceptInvite);
+router.post('/accept', acceptInvite);
 
 export default router;

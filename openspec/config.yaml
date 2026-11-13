@@ -1,0 +1,48 @@
+schema: spec-driven
+
+context: |
+  Produto: Superior Contábil — SaaS B2B para escritórios de contabilidade
+  brasileiros. Multitenant: cada Tenant é a conta contratante e pode conter
+  vários Offices (empresas contábeis com CNPJ próprio). Usuários pertencem ao
+  Tenant; o Owner acessa todos os Offices e Atendentes recebem acesso explícito.
+  Company é a empresa/pessoa atendida e seus dados pertencem a um único Office.
+
+  Stack: React + TypeScript + Vite (frontend), Node.js + TypeScript + Express
+  (backend), Prisma v5 sobre PostgreSQL (Supabase), JWT (jose) para auth, npm
+  workspaces (monorepo em packages/{frontend,backend,shared}), Doppler pra
+  secrets, Stripe pra pagamento, Resend pra e-mail.
+
+  Convenções de código: controllers fazem SQL cru via db.query (sem camada de
+  repositório/ORM query builder) — só introduza uma função de domínio isolada
+  quando uma invariante for genuinamente frágil em SQL puro. Isolamento
+  multitenant em 3 camadas: JWT → transação em um único PoolClient com
+  set_config parametrizado para Tenant/User/Office → RLS no Postgres.
+  set_config e toda query SEMPRE parametrizados.
+
+  Design system do produto (paleta navy/gold "big four", sem dark mode nesta
+  versão, termos técnicos como "tenant" nunca aparecem na UI): docs/design-system.md.
+  Histórico de decisões de infra/deploy e pendências em andamento:
+  docs/cerebro-do-projeto.md — consulte antes de assumir o estado de uma
+  pendência de infra (migrations, deploy, secrets).
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

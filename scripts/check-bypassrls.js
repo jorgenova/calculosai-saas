@@ -3,7 +3,7 @@ const { Client } = require('pg')
 async function checkBypassRls() {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false },
     family: 4,
   })
 

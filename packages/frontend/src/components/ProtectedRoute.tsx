@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, requireOwner = false }: Props) {
   }
 
   if (requireOwner && user.role !== 'owner') {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/atendimento" replace />
   }
 
   return <>{children}</>

@@ -69,7 +69,7 @@ export function LoginPage() {
             Contabilidade com a precisão que seu escritório exige.
           </p>
           <p className="text-body text-ink-300 mt-4">
-            Lançamentos, DRE, conciliação bancária e gestão de clientes em um único lugar.
+            Lançamentos, DRE, conciliação bancária e gestão de empresas em um único lugar.
           </p>
         </div>
         <p className="text-xs text-ink-400">© {new Date().getFullYear()} Superior Contábil</p>

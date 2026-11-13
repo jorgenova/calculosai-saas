@@ -1,48 +1,58 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { OfficeProvider } from '@/contexts/OfficeContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
-// Pages — importadas com lazy depois; por ora stubs
+// Pages will be lazy-loaded later; they are currently direct imports.
 import { LoginPage } from '@/pages/Login'
 import { OnboardingPage } from '@/pages/Onboarding'
-import { AceitarConvitePage } from '@/pages/AceitarConvite'
+import { AcceptInvitePage } from '@/pages/AcceptInvite'
 import { OwnerDashboard } from '@/pages/OwnerDashboard'
 import { AttendantDashboard } from '@/pages/AttendantDashboard'
 
 export function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <OfficeProvider>
+       <BrowserRouter>
         <Routes>
-          {/* Públicas */}
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/entrar" element={<LoginPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/cadastro" element={<OnboardingPage />} />
-          <Route path="/convite" element={<AceitarConvitePage />} />
+          <Route path="/invitation" element={<AcceptInvitePage />} />
+          <Route path="/convite" element={<AcceptInvitePage />} />
 
-          {/* Proprietário */}
+          {/* Owner */}
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireOwner>
                 <OwnerDashboard />
               </ProtectedRoute>
             }
           />
 
-          {/* Atendente */}
+          {/* Attendant */}
           <Route
-            path="/atendimento"
+            path="/attendance"
             element={
               <ProtectedRoute>
                 <AttendantDashboard />
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/atendimento"
+            element={<ProtectedRoute><AttendantDashboard /></ProtectedRoute>}
+          />
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/entrar" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
+      </OfficeProvider>
     </AuthProvider>
   )
 }

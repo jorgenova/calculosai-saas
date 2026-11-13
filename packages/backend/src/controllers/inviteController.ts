@@ -1,134 +1,154 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
 import { sendInviteEmail } from '../config/email';
+import { setDatabaseContext, withTenantTransaction, withTransaction } from '../config/database';
 import { AuthRequest } from '../middlewares/auth';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 
-const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function inviteAttendant(req: AuthRequest, res: Response) {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  if (req.user.role !== 'owner') {
+    return res.status(403).json({ error: 'Only the owner can invite attendants' });
+  }
+
+  const email = String(req.body.email ?? '').trim().toLowerCase();
+  const officeIds = Array.isArray(req.body.officeIds)
+    ? [...new Set(req.body.officeIds.map(String))] as string[]
+    : [];
+  if (!email || officeIds.length === 0) {
+    return res.status(400).json({ error: 'Email and at least one office are required' });
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + SEVEN_DAYS_MS);
+
   try {
-    // Somente owner pode convidar
-    if (req.user?.role !== 'owner') {
-      return res.status(403).json({ error: 'Apenas o proprietario pode convidar atendentes' });
-    }
+    const outcome = await withTenantTransaction(req.user, async (client) => {
+      const offices = await client.query(
+        'SELECT id FROM offices WHERE tenant_id = $1 AND id = ANY($2::TEXT[])',
+        [req.user!.tenantId, officeIds]
+      );
+      if (offices.rowCount !== officeIds.length) return { kind: 'invalid_offices' as const };
 
-    const { email } = req.body;
+      const existing = await client.query(
+        'SELECT id, role FROM users WHERE email = $1 AND tenant_id = $2',
+        [email, req.user!.tenantId]
+      );
+      if (existing.rows[0]) {
+        if (existing.rows[0].role !== 'attendant') return { kind: 'owner_email' as const };
+        for (const officeId of officeIds) {
+          await client.query(
+            `INSERT INTO office_accesses (id, tenant_id, user_id, office_id)
+             VALUES (gen_random_uuid()::TEXT, $1, $2, $3)
+             ON CONFLICT (user_id, office_id) DO NOTHING`,
+            [req.user!.tenantId, existing.rows[0].id, officeId]
+          );
+        }
+        return { kind: 'access_granted' as const };
+      }
 
-    if (!email) {
-      return res.status(400).json({ error: 'Email obrigatorio' });
-    }
+      const pending = await client.query(
+        `SELECT id FROM invitations WHERE email = $1 AND tenant_id = $2
+          AND status = 'pending' AND expires_at > NOW()`,
+        [email, req.user!.tenantId]
+      );
+      if (pending.rows[0]) return { kind: 'pending' as const };
 
-    // Verifica se usuario ja existe no tenant
-    const userExists = await db.query(
-      'SELECT id FROM "User" WHERE email = $1 AND "tenantId" = $2',
-      [email, req.user.tenantId]
-    );
-
-    if (userExists.rows[0]) {
-      return res.status(400).json({ error: 'Usuario ja cadastrado neste tenant' });
-    }
-
-    // So pode haver um convite pendente por e-mail por Tenant (docs/specs/tenant.md, UC-04)
-    const conviteExists = await db.query(
-      `SELECT id FROM "Convite"
-       WHERE email = $1 AND "tenantId" = $2 AND status = 'pendente' AND "expiresAt" > NOW()`,
-      [email, req.user.tenantId]
-    );
-
-    if (conviteExists.rows[0]) {
-      return res.status(400).json({ error: 'Ja existe um convite pendente para este e-mail' });
-    }
-
-    // Busca dados do tenant para o e-mail
-    const tenantResult = await db.query(
-      'SELECT name, slug FROM "Tenant" WHERE id = $1',
-      [req.user.tenantId]
-    );
-
-    const tenant = tenantResult.rows[0];
-
-    // Gera o token de convite — o valor em claro so existe aqui; so o hash e
-    // persistido (docs/specs/tenant.md, D-01)
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(Date.now() + SETE_DIAS_MS);
-
-    await db.query(
-      `INSERT INTO "Convite" (id, "tenantId", email, "tokenHash", "convidadoPorUserId", "expiresAt")
-       VALUES (gen_random_uuid()::TEXT, $1, $2, $3, $4, $5)`,
-      [req.user.tenantId, email, tokenHash, req.user.userId, expiresAt]
-    );
-
-    // Best-effort: falha no envio nao desfaz o convite ja persistido (INV-12)
-    try {
-      await sendInviteEmail(email, tenant.name, tenant.slug, token);
-    } catch (emailErr) {
-      console.error('Erro ao enviar e-mail de convite (convite continua valido):', emailErr);
-    }
-
-    return res.status(200).json({
-      message: 'Convite enviado com sucesso',
+      const tenant = await client.query('SELECT name, slug FROM tenants WHERE id = $1', [req.user!.tenantId]);
+      const invitation = await client.query(
+        `INSERT INTO invitations (id, tenant_id, email, token_hash, invited_by_user_id, expires_at)
+         VALUES (gen_random_uuid()::TEXT, $1, $2, $3, $4, $5) RETURNING id`,
+        [req.user!.tenantId, email, tokenHash, req.user!.userId, expiresAt]
+      );
+      for (const officeId of officeIds) {
+        await client.query(
+          `INSERT INTO invitation_offices (id, tenant_id, invitation_id, office_id)
+           VALUES (gen_random_uuid()::TEXT, $1, $2, $3)`,
+          [req.user!.tenantId, invitation.rows[0].id, officeId]
+        );
+      }
+      return {
+        kind: 'invited' as const,
+        tenantName: tenant.rows[0].name,
+        tenantSlug: tenant.rows[0].slug,
+      };
     });
 
-  } catch (err) {
-    console.error('Erro ao convidar atendente:', err);
-    return res.status(500).json({ error: 'Erro interno' });
+    if (outcome.kind === 'invalid_offices') return res.status(400).json({ error: 'Every office must belong to this account' });
+    if (outcome.kind === 'owner_email') return res.status(400).json({ error: 'The owner already has access to every office' });
+    if (outcome.kind === 'pending') return res.status(409).json({ error: 'A pending invitation already exists for this email' });
+    if (outcome.kind === 'access_granted') return res.status(200).json({ message: 'Office access granted' });
+
+    try {
+      await sendInviteEmail(email, outcome.tenantName, outcome.tenantSlug, token);
+    } catch (emailError) {
+      console.error('Failed to send invitation email (invitation remains valid):', emailError);
+    }
+    return res.status(200).json({ message: 'Invitation sent successfully' });
+  } catch (error) {
+    console.error('Failed to invite attendant:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
 
-// UC-06 (docs/specs/tenant.md): rota publica — quem aceita ainda nao tem conta.
 export async function acceptInvite(req: Request, res: Response) {
+  const { token, name, password } = req.body;
+  if (!token || !String(name).trim() || !password) {
+    return res.status(400).json({ error: 'Token, name, and password are required' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const userId = crypto.randomUUID();
+
   try {
-    const { token, nome, senha } = req.body;
+    const result = await withTransaction(async (client) => {
+      const invitationResult = await client.query(
+        `SELECT id, tenant_id, email, expires_at FROM invitations
+          WHERE token_hash = $1 AND status = 'pending'`,
+        [tokenHash]
+      );
+      const invitation = invitationResult.rows[0];
+      if (!invitation) return { kind: 'invalid' as const };
 
-    if (!token || !nome || !senha) {
-      return res.status(400).json({ error: 'Token, nome e senha sao obrigatorios' });
-    }
+      // The validated one-time token authorizes this system-level provisioning transaction.
+      await setDatabaseContext(client, { tenantId: invitation.tenant_id, userId, role: 'owner' });
+      if (new Date(invitation.expires_at).getTime() <= Date.now()) {
+        await client.query(`UPDATE invitations SET status = 'expired' WHERE id = $1`, [invitation.id]);
+        return { kind: 'expired' as const };
+      }
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const officeRows = await client.query(
+        'SELECT office_id FROM invitation_offices WHERE invitation_id = $1 AND tenant_id = $2',
+        [invitation.id, invitation.tenant_id]
+      );
+      if (officeRows.rowCount === 0) return { kind: 'invalid' as const };
 
-    const conviteResult = await db.query(
-      `SELECT id, "tenantId", email FROM "Convite"
-       WHERE "tokenHash" = $1 AND status = 'pendente' AND "expiresAt" > NOW()`,
-      [tokenHash]
-    );
+      await client.query(
+        `INSERT INTO users (id, tenant_id, name, email, password, role, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'attendant', NOW(), NOW())`,
+        [userId, invitation.tenant_id, String(name).trim(), invitation.email, hashedPassword]
+      );
+      for (const office of officeRows.rows) {
+        await client.query(
+          `INSERT INTO office_accesses (id, tenant_id, user_id, office_id)
+           VALUES (gen_random_uuid()::TEXT, $1, $2, $3)`,
+          [invitation.tenant_id, userId, office.office_id]
+        );
+      }
+      await client.query(`UPDATE invitations SET status = 'accepted' WHERE id = $1`, [invitation.id]);
+      return { kind: 'accepted' as const };
+    });
 
-    const convite = conviteResult.rows[0];
-
-    if (!convite) {
-      return res.status(400).json({ error: 'Convite invalido ou expirado' });
-    }
-
-    const hashedPassword = await bcrypt.hash(senha, 10);
-
-    await db.query('BEGIN');
-    await db.query(
-      'SELECT set_config($1, $2, true)',
-      ['app.current_tenant', convite.tenantId]
-    );
-
-    await db.query(
-      `INSERT INTO "User" (id, "tenantId", name, email, password, role, "createdAt", "updatedAt")
-       VALUES (gen_random_uuid()::TEXT, $1, $2, $3, $4, 'attendant', NOW(), NOW())`,
-      [convite.tenantId, nome, convite.email, hashedPassword]
-    );
-
-    await db.query(
-      `UPDATE "Convite" SET status = 'aceito' WHERE id = $1`,
-      [convite.id]
-    );
-
-    await db.query('COMMIT');
-
-    return res.status(201).json({ message: 'Convite aceito com sucesso' });
-
-  } catch (err) {
-    // ROLLBACK pode falhar tambem (ex: banco indisponivel) — nao deixar isso virar
-    // uma segunda excecao nao tratada, que derrubaria o processo inteiro.
-    await db.query('ROLLBACK').catch(() => {});
-    console.error('Erro ao aceitar convite:', err);
-    return res.status(500).json({ error: 'Erro interno' });
+    if (result.kind === 'invalid') return res.status(400).json({ error: 'Invitation is invalid or already used' });
+    if (result.kind === 'expired') return res.status(400).json({ error: 'Invitation has expired' });
+    return res.status(201).json({ message: 'Invitation accepted successfully' });
+  } catch (error: any) {
+    if (error?.code === '23505') return res.status(409).json({ error: 'User is already registered for this account' });
+    console.error('Failed to accept invitation:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

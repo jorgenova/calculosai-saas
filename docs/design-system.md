@@ -6,13 +6,13 @@
 
 | Pergunta | Decisão |
 |---|---|
-| Público-alvo | Escritórios de contabilidade (atendem múltiplas empresas/clientes) |
+| Público-alvo | Escritórios de contabilidade (atendem múltiplas empresas) |
 | Personalidade | Sério, corporativo, moderno, **premium** — referência "big four" (PwC, McKinsey), não "SaaS coloridão" |
 | Dark mode | Não, por enquanto (v1 só light) |
 | Acessibilidade | WCAG AA |
-| Módulos previstos | Lançamentos contábeis / DRE / balancetes, notas fiscais, conciliação bancária/financeiro, gestão de clientes e equipe |
+| Módulos previstos | Lançamentos contábeis / DRE / balancetes, notas fiscais, conciliação bancária/financeiro, gestão de empresas e equipe |
 | Institucional vs App | Mesma identidade visual forte; institucional tem mais respiro/seções de marketing, app prioriza densidade e eficiência |
-| Linguagem de UI | Termos técnicos internos (ex.: "tenant") **nunca** aparecem na interface — usar "empresa atendida" / "cliente" |
+| Linguagem de UI | Termos técnicos internos (ex.: "tenant") **nunca** aparecem na interface — usar "Empresa" / "empresa atendida" |
 
 ---
 
@@ -484,7 +484,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[], isEmpty?: (da
 **Regra de UI para cada estado:**
 - `loading` → skeleton (não spinner de tela cheia) para tabelas/listas; spinner só em ações pontuais (botão de submit).
 - `error` → mensagem em `danger-600` + ação de retry, nunca troca a tela inteira por um erro genérico.
-- `empty` → ilustração leve/ícone + texto orientando a próxima ação (ex.: "Nenhum cliente cadastrado ainda — adicionar o primeiro").
+- `empty` → ilustração leve/ícone + texto orientando a próxima ação (ex.: "Nenhuma empresa cadastrada ainda — adicionar a primeira").
 - `success` → conteúdo normal.
 
 ---
@@ -544,7 +544,7 @@ packages/frontend/src/
 
 | Contexto | Faça | Evite |
 |---|---|---|
-| Termos internos | "empresa atendida", "cliente", "equipe" | "tenant", "workspace", "org" |
+| Termos internos | "Empresa", "empresa atendida", "equipe" | "tenant", "workspace", "org", "cliente" |
 | Erro de sistema | "Não foi possível salvar. Tente novamente." | "Erro 500: Internal Server Error" |
 | Confirmação de ação destrutiva | "Excluir este lançamento? Essa ação não pode ser desfeita." | "Tem certeza?" (vago demais) |
 | Estado vazio | Orientar a próxima ação concreta ("Cadastre a primeira empresa atendida") | Mensagem genérica ("Nenhum dado encontrado") |

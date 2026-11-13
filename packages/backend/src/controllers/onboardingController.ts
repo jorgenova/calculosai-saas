@@ -1,107 +1,102 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
+import { db, setDatabaseContext, withTransaction } from '../config/database';
 import { sendWelcomeEmail } from '../config/email';
 import { createCustomer, createSubscription } from '../config/stripe';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { isValidCnpj, normalizeTaxId } from '../domain/taxIdentification';
 
 export async function onboarding(req: Request, res: Response) {
   try {
-    const { name, email, password, companyName, cnpj, slug, priceId } = req.body;
+    const { name, email, password, companyName, accountName, cnpj, slug, priceId } = req.body;
 
-    // Validacoes basicas
+    // Basic validation.
     if (!name || !email || !password || !companyName || !cnpj || !slug || !priceId) {
-      return res.status(400).json({ error: 'Todos os campos sao obrigatorios' });
+      return res.status(400).json({ error: 'All fields are required' });
     }
 
-    // Verifica se CNPJ ja existe
-    const cnpjExists = await db.query(
-      'SELECT id FROM "Tenant" WHERE cnpj = $1',
-      [cnpj]
-    );
-
-    if (cnpjExists.rows[0]) {
-      return res.status(400).json({ error: 'CNPJ ja cadastrado' });
+    const normalizedCnpj = normalizeTaxId(String(cnpj));
+    if (!isValidCnpj(normalizedCnpj)) {
+      return res.status(400).json({ error: 'CNPJ is invalid' });
     }
 
-    // Verifica se slug ja existe
+    // Check whether the slug already exists.
     const slugExists = await db.query(
-      'SELECT id FROM "Tenant" WHERE slug = $1',
+      'SELECT id FROM tenants WHERE slug = $1',
       [slug]
     );    
 
     if (slugExists.rows[0]) {
-      return res.status(400).json({ error: 'Slug ja em uso' });
+      return res.status(400).json({ error: 'Slug is already in use' });
     }
 
-    // Hash da senha
+    // Hash the password.
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Gera o ID do tenant antes de inserir
+    // Generate the account identifiers before opening the scoped transaction.
     const tenantId = crypto.randomUUID();
+    const ownerId = crypto.randomUUID();
 
-    // Seta tenant no contexto ANTES do INSERT
-    await db.query('BEGIN');
-    await db.query(
-      'SELECT set_config($1, $2, true)',
-      ['app.current_tenant', tenantId]
-    );
+    await withTransaction(async (client) => {
+      await setDatabaseContext(client, {
+        tenantId,
+        userId: ownerId,
+        role: 'owner',
+      });
 
-    // Cria tenant — nasce pendente_pagamento (default do schema). A cobranca no
-    // Stripe so acontece DEPOIS deste commit, para nunca deixar uma assinatura
-    // orfa se o insert falhar (docs/specs/tenant.md, UC-01/D-02).
-    await db.query(
-      `INSERT INTO "Tenant" (id, name, cnpj, slug, "createdAt")
-       VALUES ($1, $2, $3, $4, NOW())`,
-      [tenantId, companyName, cnpj, slug]
-    );
+      await client.query(
+        `INSERT INTO tenants (id, name, slug, created_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [tenantId, accountName || companyName, slug]
+      );
 
-    // Cria usuario proprietario
-    await db.query(
-      `INSERT INTO "User" (id, "tenantId", name, email, password, role, "createdAt", "updatedAt")
-       VALUES (gen_random_uuid()::TEXT, $1, $2, $3, $4, 'owner', NOW(), NOW())`,
-      [tenantId, name, email, hashedPassword]
-    );
+      await client.query(
+        `INSERT INTO offices (id, tenant_id, name, cnpj, created_at, updated_at)
+         VALUES (gen_random_uuid()::TEXT, $1, $2, $3, NOW(), NOW())`,
+        [tenantId, companyName, normalizedCnpj]
+      );
 
-    await db.query('COMMIT');
+      await client.query(
+        `INSERT INTO users (id, tenant_id, name, email, password, role, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'owner', NOW(), NOW())`,
+        [ownerId, tenantId, name, email, hashedPassword]
+      );
+    });
 
-    // A partir daqui o Tenant ja existe e a resposta ja e um 201 garantido.
-    // Stripe e e-mail sao best-effort (UC-01/D-02, D-03): falha aqui nunca deve
-    // desfazer o cadastro nem virar 500 pro cliente.
+    // From here the tenant exists and the 201 response is guaranteed. Stripe and
+    // email are best effort: failures must not undo registration or return a 500.
     try {
       const customer = await createCustomer(email, companyName);
       const subscription = await createSubscription(customer.id, priceId);
 
-      await db.query('BEGIN');
-      await db.query(
-        'SELECT set_config($1, $2, true)',
-        ['app.current_tenant', tenantId]
-      );
-      await db.query(
-        `UPDATE "Tenant" SET "stripeCustomerId" = $1, "stripeSubscriptionId" = $2
-         WHERE id = $3`,
-        [customer.id, subscription.id, tenantId]
-      );
-      await db.query('COMMIT');
+      await withTransaction(async (client) => {
+        await setDatabaseContext(client, { tenantId, userId: ownerId, role: 'owner' });
+        await client.query(
+          `UPDATE tenants SET stripe_customer_id = $1, stripe_subscription_id = $2
+           WHERE id = $3`,
+          [customer.id, subscription.id, tenantId]
+        );
+      });
     } catch (stripeErr) {
-      await db.query('ROLLBACK').catch(() => {});
-      console.error('Erro ao solicitar assinatura no Stripe (Tenant permanece pendente_pagamento):', stripeErr);
+      console.error('Failed to request the Stripe subscription (tenant remains pending_payment):', stripeErr);
     }
 
     try {
       await sendWelcomeEmail(email, companyName, slug);
     } catch (emailErr) {
-      console.error('Erro ao enviar e-mail de boas-vindas:', emailErr);
+      console.error('Failed to send the welcome email:', emailErr);
     }
 
     return res.status(201).json({
-      message: 'Conta criada com sucesso',
+      message: 'Account created successfully',
       tenantId,
     });
 
-  } catch (err) {
-    await db.query('ROLLBACK').catch(() => {});
-    console.error('Erro no onboarding:', err);
-    return res.status(500).json({ error: 'Erro interno' });
+  } catch (err: any) {
+    console.error('Onboarding failed:', err);
+    if (err?.code === '23505') {
+      return res.status(400).json({ error: 'Slug or CNPJ is already registered' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
