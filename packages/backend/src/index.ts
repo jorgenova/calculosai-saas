@@ -10,6 +10,8 @@ import onboardingRoutes from './routes/onboarding';
 import inviteRoutes from './routes/invite';
 import conviteRoutes from './routes/convite';
 import webhookRoutes from './routes/webhooks';
+import officeRoutes from './routes/offices';
+import companyRoutes from './routes/companies';
 import { externalServicesMode } from './config/externalServices';
 
 const app = express();
@@ -55,6 +57,8 @@ app.use(tenantMiddleware);
 
 app.use('/tenant', tenantRoutes);
 app.use('/invite', inviteRoutes);
+app.use('/offices', officeRoutes);
+app.use('/companies', companyRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

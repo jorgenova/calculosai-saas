@@ -14,8 +14,8 @@ BOOTSTRAP_SQL="$PROJECT_ROOT/scripts/test-db/bootstrap.sql"
 
 require_postgres() {
   if [[ ! -x "$PG_BIN/pg_ctl" ]]; then
-    echo "PostgreSQL 16 nao encontrado em $PG_BIN." >&2
-    echo "Instale com: brew install postgresql@16" >&2
+    echo "PostgreSQL 16 was not found at $PG_BIN." >&2
+    echo "Install it with: brew install postgresql@16" >&2
     exit 1
   fi
 }
@@ -102,7 +102,7 @@ SQL
 
   psql_admin --dbname="$DB_NAME" --command="GRANT CONNECT ON DATABASE $DB_NAME TO app_user, migration_user" >/dev/null
 
-  if [[ "$(psql_admin --dbname="$DB_NAME" --tuples-only --no-align --command="SELECT to_regclass('public.\"Tenant\"') IS NOT NULL")" != "t" ]]; then
+  if [[ "$(psql_admin --dbname="$DB_NAME" --tuples-only --no-align --command="SELECT to_regclass('public.tenants') IS NOT NULL")" != "t" ]]; then
     psql_admin --dbname="$DB_NAME" --file="$BOOTSTRAP_SQL"
   fi
 
@@ -124,11 +124,11 @@ mark_baseline_migrations() {
   local database_url="postgresql://postgres:postgres_test_only@127.0.0.1:$PG_PORT/$DB_NAME"
 
   if [[ ! -x "$prisma_bin" ]]; then
-    echo "Aviso: Prisma nao instalado; migrations baseline nao foram registradas." >&2
+    echo "Warning: Prisma is not installed; baseline migrations were not recorded." >&2
     return
   fi
 
-  for migration_name in 0001_baseline 0002_tenant_status_convite; do
+  for migration_name in 0001_baseline 0002_tenant_status_convite 0003_english_snake_case_schema 0004_office_hierarchy_and_companies 0005_remove_tenant_cnpj; do
     if ! migration_is_applied "$migration_name"; then
       (
         cd "$PROJECT_ROOT/packages/backend"
@@ -140,14 +140,14 @@ mark_baseline_migrations() {
 
 stop_server() {
   if [[ ! -s "$PG_DATA/PG_VERSION" ]]; then
-    echo "Banco de testes ainda nao foi inicializado."
+    echo "The test database has not been initialized yet."
     return
   fi
 
   if is_running; then
     "$PG_BIN/pg_ctl" --pgdata="$PG_DATA" --wait stop
   else
-    echo "Banco de testes ja esta parado."
+    echo "The test database is already stopped."
   fi
 }
 
@@ -167,13 +167,13 @@ reset_database() {
 
 show_status() {
   if [[ -s "$PG_DATA/PG_VERSION" ]] && is_running; then
-    echo "PostgreSQL de testes: ativo"
-    echo "Banco: $DB_NAME"
+    echo "Test PostgreSQL: running"
+    echo "Database: $DB_NAME"
     echo "Host: 127.0.0.1"
-    echo "Porta: $PG_PORT"
-    echo "Dados: $PG_DATA"
+    echo "Port: $PG_PORT"
+    echo "Data: $PG_DATA"
   else
-    echo "PostgreSQL de testes: parado"
+    echo "Test PostgreSQL: stopped"
     return 1
   fi
 }
@@ -196,7 +196,7 @@ case "${1:-}" in
     show_status
     ;;
   *)
-    echo "Uso: $0 {start|stop|status|reset}" >&2
+    echo "Usage: $0 {start|stop|status|reset}" >&2
     exit 2
     ;;
 esac

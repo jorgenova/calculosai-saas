@@ -13,6 +13,7 @@
     "test:db:status": "bash scripts/test-db.sh status",
     "test:db:reset": "bash scripts/test-db.sh reset",
     "test:db:verify": "node --env-file-if-exists=packages/backend/.env.test scripts/verify-test-db.js",
+    "test:db:migration": "bash scripts/test-office-migration.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "typecheck:backend": "npm run typecheck --workspace=packages/backend",
     "typecheck:frontend": "npm run typecheck --workspace=packages/frontend",

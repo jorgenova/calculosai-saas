@@ -8,10 +8,11 @@ type RequestOptions = {
   method?: string
   body?: unknown
   auth?: boolean
+  office?: boolean
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = true } = options
+  const { method = 'GET', body, auth = true, office = false } = options
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -22,6 +23,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     if (token) headers['Authorization'] = `Bearer ${token}`
   }
 
+  if (office) {
+    const officeId = localStorage.getItem('activeOfficeId')
+    if (officeId) headers['X-Office-Id'] = officeId
+  }
+
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
     headers,
@@ -30,7 +36,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }))
-    throw new Error(error.message ?? `HTTP ${response.status}`)
+    if (office && response.status === 403) window.dispatchEvent(new Event('office-access-revoked'))
+    throw new Error(error.error ?? error.message ?? `HTTP ${response.status}`)
   }
 
   return response.json() as Promise<T>
@@ -48,4 +55,10 @@ export const api = {
 
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
+
+  officeGet: <T>(path: string) =>
+    request<T>(path, { method: 'GET', office: true }),
+
+  officePost: <T>(path: string, body: unknown = {}) =>
+    request<T>(path, { method: 'POST', body, office: true }),
 }

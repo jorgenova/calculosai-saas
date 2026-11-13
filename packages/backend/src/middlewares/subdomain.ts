@@ -22,7 +22,7 @@ export async function subdomainMiddleware(
     }
 
     const result = await db.query(
-      'SELECT id FROM "Tenant" WHERE slug = $1',
+      'SELECT id FROM tenants WHERE slug = $1',
       [slug]
     );
 

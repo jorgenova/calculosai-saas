@@ -3,6 +3,26 @@
 
 ---
 
+## Estado da sessao — 2026-11-13 (hierarquia de escritorios)
+
+O modelo vigente passa a tratar `Tenant` como a conta contratante. Cada Tenant
+possui um ou mais `Office`, e cada Office representa uma empresa contabil com
+CNPJ proprio. O Owner global acessa todos os Offices; Atendentes recebem acesso
+explicito por `office_accesses`. Dados operacionais e `Company` sao isolados por
+Tenant + Office via RLS.
+
+Migrations novas, partindo de `0003_english_snake_case_schema`:
+
+- `0004_office_hierarchy_and_companies`: expansao, backfill do primeiro Office,
+  acessos, convites multi-Office, Companies e policies RLS;
+- `0005_remove_tenant_cnpj`: contracao; CNPJ passa a existir somente em Office.
+
+O change `add-cliente` foi substituido por `add-office-hierarchy`. O cadastro
+agora se chama Company/Empresa, aceita CPF ou CNPJ e pode repetir o documento em
+Offices distintos sem compartilhar dados.
+
+---
+
 ## Estado da sessao — 2026-08-05 (deploy em servidor novo)
 
 Decisao do dia: abandonar a VPS Hostgator (infra antiga, projeto Doppler
@@ -274,51 +294,18 @@ Este repositorio e um boilerplate generico reutilizavel para qualquer SaaS B2B.
 
 ## Modelo de Dados
 
-```sql
--- Enum
-CREATE TYPE "Role" AS ENUM ('owner', 'attendant');
-CREATE TYPE "TenantStatus" AS ENUM ('pendente_pagamento', 'ativo', 'expirado');
-CREATE TYPE "ConviteStatus" AS ENUM ('pendente', 'aceito', 'expirado');
+O modelo normativo está em `packages/backend/prisma/schema.prisma` e é resumido
+em `docs/office-hierarchy.md`:
 
--- Tenant
-CREATE TABLE "Tenant" (
-  id                     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  name                   TEXT NOT NULL,
-  cnpj                   TEXT NOT NULL UNIQUE,
-  slug                   TEXT UNIQUE,
-  status                 "TenantStatus" NOT NULL DEFAULT 'pendente_pagamento',
-  "stripeCustomerId"     TEXT,
-  "stripeSubscriptionId" TEXT,
-  "createdAt"            TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+- `tenants`: conta, namespace de login e assinatura; não possui CNPJ;
+- `users`: usuários e papel global, com um único Owner por Tenant;
+- `offices`: empresas contábeis do Tenant, cada uma com CNPJ próprio;
+- `office_accesses`: acessos explícitos dos Atendentes aos Offices;
+- `invitations` + `invitation_offices`: convite e Offices concedidos;
+- `companies`: empresa ou pessoa atendida, isolada por Tenant + Office;
+- `company_tax_periods`: histórico tributário da Company.
 
--- User
-CREATE TABLE "User" (
-  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "tenantId"  TEXT NOT NULL,
-  name        TEXT NOT NULL,
-  email       TEXT NOT NULL,
-  password    TEXT NOT NULL,
-  role        "Role" NOT NULL,
-  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id),
-  UNIQUE (email, "tenantId")
-);
-
--- Convite (aceite de atendente por token — ver docs/specs/tenant.md)
-CREATE TABLE "Convite" (
-  id                   TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "tenantId"           TEXT NOT NULL,
-  email                TEXT NOT NULL,
-  "tokenHash"          TEXT NOT NULL UNIQUE,
-  status               "ConviteStatus" NOT NULL DEFAULT 'pendente',
-  "convidadoPorUserId" TEXT NOT NULL,
-  "createdAt"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "expiresAt"          TIMESTAMPTZ NOT NULL,
-  FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id)
-);
-```
+Todos os nomes persistidos estão em inglês, lowercase e snake_case.
 
 ---
 
@@ -327,87 +314,40 @@ CREATE TABLE "Convite" (
 - Versao: 5 (fixada — v7 tem bug com prisma.config.ts inexistente)
 - Migrations em: packages/backend/prisma/migrations/
 - Baseline: 0001_baseline — marca o estado inicial do banco (criado manualmente)
+- 0003_english_snake_case_schema — converte o schema legado para inglês/snake_case
+- 0004_office_hierarchy_and_companies — expansão, backfill e RLS por Office
+- 0005_remove_tenant_cnpj — contração após validação do backend novo
 - Deploy: npx prisma migrate deploy (roda via migration_user no CI)
 - Para novas migrations: npx prisma migrate dev --name descricao (local)
 - Para verificar status: npx prisma migrate status
+- Ensaio reproduzível da expansão/contração: `npm run test:db:migration`
 
 ---
 
 ## RLS — Policies ativas
 
-```sql
--- Tenant
-ALTER TABLE "Tenant" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Tenant" FORCE ROW LEVEL SECURITY;
+RLS está habilitado e forçado em todas as tabelas do produto. Tabelas de conta
+validam `app.current_tenant`; tabelas operacionais também validam
+`app.current_office` e `can_access_office(...)`. O Owner recebe acesso implícito
+a todos os Offices e o Atendente depende de `office_accesses`.
 
-CREATE POLICY tenant_select ON "Tenant" FOR SELECT
-  USING (
-    slug IS NOT NULL
-    OR id = current_setting('app.current_tenant', true)::TEXT
-  );
-
-CREATE POLICY tenant_insert ON "Tenant" FOR INSERT
-  WITH CHECK (id = current_setting('app.current_tenant', true)::TEXT);
-
-CREATE POLICY tenant_update ON "Tenant" FOR UPDATE
-  USING     (id = current_setting('app.current_tenant', true)::TEXT)
-  WITH CHECK (id = current_setting('app.current_tenant', true)::TEXT);
-
-CREATE POLICY tenant_delete ON "Tenant" FOR DELETE
-  USING (id = current_setting('app.current_tenant', true)::TEXT);
-
--- User
-ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "User" FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY user_select ON "User" FOR SELECT
-  USING ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
-
-CREATE POLICY user_insert ON "User" FOR INSERT
-  WITH CHECK ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
-
-CREATE POLICY user_update ON "User" FOR UPDATE
-  USING     ("tenantId" = current_setting('app.current_tenant', true)::TEXT)
-  WITH CHECK ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
-
-CREATE POLICY user_delete ON "User" FOR DELETE
-  USING ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
-
--- Convite
-ALTER TABLE "Convite" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Convite" FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY convite_select ON "Convite" FOR SELECT
-  USING (true);
--- IMPORTANTE: SELECT é permissivo de propósito — o endpoint público de aceite de
--- convite não conhece o tenantId até localizar o Convite pelo hash do token.
--- O token (32 bytes de entropia) já restringe a consulta a no máximo uma linha.
-
-CREATE POLICY convite_insert ON "Convite" FOR INSERT
-  WITH CHECK ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
-
-CREATE POLICY convite_update ON "Convite" FOR UPDATE
-  USING     ("tenantId" = current_setting('app.current_tenant', true)::TEXT)
-  WITH CHECK ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
-
-CREATE POLICY convite_delete ON "Convite" FOR DELETE
-  USING ("tenantId" = current_setting('app.current_tenant', true)::TEXT);
-```
+O código definitivo das policies está nas migrations `0003` e `0004`; o banco
+local verifica RLS com `SET ROLE app_user` em `npm run test:db:verify`.
 
 ---
 
 ## Arquitetura de Seguranca
 
 ### Isolamento em 3 camadas
-1. JWT — valida identidade e carrega tenantId. Sem token valido -> 401
-2. Middleware — extrai tenantId e injeta via set_config parametrizado
-3. RLS PostgreSQL — ultima linha de defesa
+1. JWT — valida identidade e carrega `userId`, `tenantId` e papel global
+2. Wrapper transacional — usa um único `PoolClient` e configura Tenant/User/Role/Office
+3. RLS PostgreSQL — ultima linha de defesa para Tenant e Office
 
 ### Regras inegociaveis
 - Algoritmo JWT fixado em HS256
 - Tokens com alg: none rejeitados
 - set_config sempre parametrizado — nunca interpolacao de string
-- COMMIT no finish e ROLLBACK no close do request
+- COMMIT antes da resposta de sucesso; ROLLBACK e release em erro
 - app_user jamais recebe BYPASSRLS
 - UUID v4 em todos os IDs
 - Nenhuma credencial em arquivo ou repositorio
@@ -525,7 +465,6 @@ saas_scaffolding/
 - Redireciona para /dashboard (owner) ou /atendimento (attendant) conforme role no JWT
 
 ### Backlog semana 8
-- Login alternativo por CNPJ em seudominio.com.br/entrar
 - Recuperacao de subdominio por e-mail
 
 ---
@@ -536,9 +475,14 @@ saas_scaffolding/
 |---|---|---|---|
 | GET | /health | Nao | Health check |
 | POST | /auth/login | Nao | Login via slug ou subdominio |
-| POST | /onboarding | Nao | Criacao de tenant + usuario + assinatura |
-| GET | /tenant/me | Sim | Dados do tenant autenticado |
-| POST | /invite | Sim (owner) | Convite de atendente |
+| POST | /onboarding | Nao | Criacao da conta + primeiro escritorio + Owner |
+| GET | /tenant/me | Sim | Dados administrativos da conta |
+| GET/POST | /offices | Sim | Lista Offices acessiveis / cria Office (Owner) |
+| POST/DELETE | /offices/:id/accesses | Sim (owner) | Concede/revoga acesso |
+| POST | /invite | Sim (owner) | Convite de Atendente para um ou mais Offices |
+| POST | /convite/accept | Nao | Aceite atomico do convite |
+| GET/POST | /companies | Sim + Office | Lista/cadastra Empresas no Office ativo |
+| POST | /companies/:id/* | Sim + Office | Regime e ciclo de atendimento |
 
 ---
 
@@ -558,9 +502,8 @@ saas_scaffolding/
 minimalista, DM Sans, azul+cinzas) e o scaffolding generico original, nao a
 identidade definitiva do produto. Decidido ajustar de forma **incremental**, nao
 redesign completo: manter a base atual e ir substituindo identidade
-visual/componentes conforme cada tela nova e construida (ex: quando o contexto
-Cliente for implementado, ja nasce com o layout definitivo, em vez de nascer no
-visual generico pra depois refazer).
+visual/componentes conforme cada tela nova e construida. A tela de Empresas e o
+seletor de Escritorio seguem esse direcionamento.
 
 ## Decisoes de Backend
 
@@ -598,7 +541,6 @@ visual generico pra depois refazer).
 ## Semana 8 — Buffer e Backlog
 
 Atividades:
-- Login alternativo por CNPJ
 - Recuperacao de subdominio por e-mail
 - Configurar Nginx para servir build do frontend (dist/)
 - SSL na VPS
@@ -609,7 +551,8 @@ Atividades:
 
 ## Decisoes em Aberto
 
-- Validacao de CNPJ via Brasil API — ainda nao implementada
+- Enriquecimento cadastral opcional via Brasil API; a validacao local de CNPJ
+  de Office ja esta implementada
 - Definir dominio final da aplicacao
 - Configurar SSL na VPS
 - Definir estrutura de planos alem do Plano Basico
