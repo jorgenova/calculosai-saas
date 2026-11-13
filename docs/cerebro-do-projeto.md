@@ -103,6 +103,11 @@ sabemos montar o schema na mao.
 6. VPS Hostgator (infra antiga documentada nas secoes abaixo) nao foi
    formalmente desligada/decommissioned — decidir o que fazer com ela
 7. Migration `0003` pra fechar o gap do `slug` (ver acima)
+8. **Divida tecnica — protecao de branch no GitHub:** o workflow
+   `.github/workflows/branch-name.yml` ja valida nomes de branches em pull
+   requests, mas o check **Branch name** ainda precisa ser marcado como
+   obrigatorio nas regras de protecao da `main`. Sem isso, um merge pode ser
+   concluido mesmo quando a validacao falhar.
 
 **Continuam pendentes de sessoes anteriores (nao tocadas hoje):**
 - Job de expiracao de 7 dias (UC-03 do `tenant.md`)

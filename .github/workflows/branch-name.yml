@@ -1,0 +1,41 @@
+name: Branch name
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  conventional-branch:
+    name: Branch name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Conventional Branch 1.1.0 name
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+
+          branch = os.environ["BRANCH"]
+          pattern = (
+              r"^(?:main|master|develop|(?:feature|feat|bugfix|fix|hotfix|release|chore|"
+              r"ai|copilot|cursor|claude|codex)/[a-z0-9]+(?:\.[a-z0-9]+)*"
+              r"(?:-[a-z0-9]+(?:\.[a-z0-9]+)*)*)$"
+          )
+
+          if re.fullmatch(pattern, branch):
+              print(f"{branch}: valid Conventional Branch 1.1.0 name")
+              sys.exit(0)
+
+          print(
+              f"::error::'{branch}' is not a valid Conventional Branch name. "
+              "Use <type>/<description> in lowercase kebab-case, for example "
+              "feature/add-login-page or fix/header-overflow. "
+              "See https://conventionalbranch.org/"
+          )
+          sys.exit(1)
+          PY
