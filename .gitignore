@@ -26,3 +26,6 @@ npm-debug.log*
 
 # Plugin local de skills (não versionado)
 ddd-spec-plugin/
+
+# OpenSpec local planning artifacts (not versioned)
+openspec/
