@@ -60,3 +60,62 @@
     @apply bg-white border border-graphite-200 rounded-xl shadow-sm;
   }
 }
+
+/* Authenticated portal composition */
+@layer components {
+  .portal-shell { @apply min-h-dvh bg-white; }
+  .portal-header { @apply fixed inset-x-0 top-0 z-40 flex flex-wrap items-center gap-3 px-4 md:px-7 py-3 bg-ink-900 text-white border-b border-ink-800; min-height: 76px; }
+  .portal-icon { @apply inline-flex items-center justify-center w-10 h-10 rounded hover:bg-ink-100/20 text-xl shrink-0; }
+  .portal-brand { @apply text-lg md:text-xl font-semibold tracking-tight flex-1; }
+  .portal-brand span { @apply hidden md:block text-[10px] font-normal text-ink-200 tracking-wide mt-0.5; }
+  .portal-office { @apply text-[10px] text-ink-200 w-full order-last sm:order-none sm:w-56; }
+  .portal-office select { @apply block bg-ink-800 text-white border border-ink-600 rounded px-2 py-1 text-xs w-full mt-1; }
+  .portal-account { @apply flex items-center gap-2 text-left rounded px-2 py-1 hover:bg-ink-800; }
+  .portal-account strong { @apply block text-xs font-medium; }
+  .portal-account small { @apply block text-[10px] text-ink-200 mt-1; }
+  .portal-avatar { @apply hidden sm:flex items-center justify-center rounded-full bg-ink-700 border border-ink-500 w-9 h-9 text-sm; }
+  .portal-main { @apply px-4 md:px-6 py-4 mx-auto w-full; padding-top: 152px; max-width: 1800px; }
+  .portal-drawer { @apply fixed m-0 p-0 border-0 bg-transparent text-graphite-900; height: 100dvh; max-height: 100dvh; width: min(340px, 90vw); max-width: 100vw; }
+  .portal-drawer-content { @apply p-4 bg-white h-full overflow-y-auto shadow-xl; }
+  .portal-drawer nav a { @apply block py-2.5 px-3 text-sm rounded hover:bg-ink-50; }
+  .portal-drawer nav a.active { @apply bg-ink-50 text-ink-800 font-semibold border-l-2 border-aurum-500; }
+  .portal-account-dialog { @apply fixed p-0 border border-graphite-200 rounded-lg bg-white shadow-xl; margin: 90px 16px 0 auto; width: min(360px, calc(100vw - 32px)); }
+  .portal-menu-action { @apply flex w-full justify-between text-left text-sm py-3 border-b border-graphite-100 hover:text-ink-600; }
+  .portal-menu-action span { @apply text-xs text-graphite-600; }
+  .portal-eyebrow { @apply text-[10px] uppercase tracking-widest font-semibold text-graphite-600; }
+  .portal-tag { @apply inline-block text-[10px] rounded px-2 py-1 bg-graphite-100 text-graphite-600; }
+  .portal-link { @apply text-ink-600 hover:underline; }
+  .information-reserve { @apply flex flex-wrap items-center gap-3 rounded-md border border-dashed border-ink-200 bg-ink-50/40 p-4; }
+  .information-reserve .portal-tag { @apply sm:ml-auto; }
+  .reserve-symbol { @apply rounded-full border border-ink-200 w-8 h-8 flex items-center justify-center text-ink-500 font-serif; }
+  .pillar-grid { @apply grid sm:grid-cols-3 lg:grid-cols-5 border-b border-graphite-200 py-4 gap-2; }
+  .pillar-shortcut { @apply flex sm:flex-col lg:flex-row gap-3 items-center p-3 rounded text-sm font-medium hover:bg-ink-50; }
+  .pillar-shortcut[aria-current] { @apply bg-ink-50 text-ink-700; }
+  .pillar-mark { @apply inline-flex shrink-0 items-center justify-center w-10 h-10 rounded bg-ink-50 border border-ink-100 text-ink-600 text-xs font-semibold; }
+  .pillar-arrow { @apply ml-auto text-ink-400; }
+  .home-work-grid { @apply grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] gap-6 mt-6; }
+  .agent-region { @apply min-w-0 py-2; }
+  .agent-center { @apply text-center mx-auto py-8 md:py-10; }
+  .agent-center h2 { @apply text-2xl md:text-3xl font-medium tracking-tight mt-5; }
+  .agent-center > p { @apply text-sm text-graphite-600 mt-3; }
+  .agent-emblem { @apply inline-flex justify-center items-center text-3xl text-aurum-600; }
+  .agent-composer { @apply flex gap-3 items-center rounded-2xl border border-graphite-200 bg-graphite-50 px-5 py-4; }
+  .agent-composer textarea { @apply w-full resize-none bg-transparent text-sm; }
+  .agent-composer button { @apply w-9 h-9 rounded-full bg-ink-100 text-ink-500 shrink-0; }
+  .agenda-region { @apply lg:border-l border-graphite-200 lg:pl-8 py-2; }
+  .calendar-reserve { @apply text-center flex flex-col justify-center items-center border border-dashed border-graphite-200 rounded-md h-52 my-6 text-sm text-graphite-600; }
+  .calendar-reserve > span { @apply text-4xl text-ink-300 mb-4; }
+  .calendar-reserve small { @apply text-[10px] mt-2; }
+  .company-heading { @apply flex flex-wrap items-center gap-3 border-b border-graphite-200 pb-4; }
+  .company-work-grid { @apply grid md:grid-cols-[200px_minmax(0,1fr)] gap-5; }
+  .company-navigation { @apply border-r border-graphite-200 pr-5; }
+  .company-navigation a { @apply block text-sm py-2.5 px-3 rounded hover:bg-ink-50; }
+  .company-navigation a[aria-current] { @apply bg-ink-50 text-ink-700 font-semibold border-l-2 border-aurum-500; }
+  .company-toolbar { @apply flex items-center justify-between gap-3 min-h-14 border-b border-graphite-200 text-xs text-graphite-600; }
+  .company-tabs { @apply flex overflow-x-auto gap-5 border-b border-graphite-200; }
+  .company-tabs a { @apply whitespace-nowrap text-sm py-3 border-b-2 border-transparent; }
+  .company-tabs a[aria-selected=true] { @apply border-ink-600 text-ink-700 font-semibold; }
+}
+dialog::backdrop { background: rgb(13 21 35 / .32); }
+:where(button, a, select, textarea):focus-visible { outline: 2px solid #7186A3; outline-offset: 3px; }
+@media (min-width: 640px) { .portal-main { padding-top: 96px; } }

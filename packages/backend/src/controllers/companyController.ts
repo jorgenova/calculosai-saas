@@ -15,6 +15,98 @@ const TAX_REGIMES = new Set([
   'lucro_real',
 ]);
 
+const PROFILE_FIELDS = {
+  legalName: 'legal_name',
+  tradeName: 'trade_name',
+  isHeadquarters: 'is_headquarters',
+  activityStartedAt: 'activity_started_at',
+  legalNature: 'legal_nature',
+  municipalRegistration: 'municipal_registration',
+  stateRegistration: 'state_registration',
+  suframaRegistration: 'suframa_registration',
+  cei: 'cei',
+  caepf: 'caepf',
+  primaryCnaeCode: 'primary_cnae_code',
+  preparationCnaeCode: 'preparation_cnae_code',
+  activityDescription: 'activity_description',
+  shareCapital: 'share_capital',
+  annualRevenue: 'annual_revenue',
+  isSmallBusiness: 'is_small_business',
+} as const;
+
+const ADDRESS_FIELDS = {
+  postalCode: 'postal_code',
+  streetType: 'street_type',
+  street: 'street',
+  number: 'number',
+  complement: 'complement',
+  neighborhood: 'neighborhood',
+  district: 'district',
+  cityCode: 'city_code',
+  city: 'city',
+  state: 'state',
+  federalCode: 'federal_code',
+} as const;
+
+type ProfileField = keyof typeof PROFILE_FIELDS;
+type AddressField = keyof typeof ADDRESS_FIELDS;
+
+function invalidField(name: string): never {
+  throw new Error(`Invalid ${name}`);
+}
+
+function nullableText(value: unknown, name: string, maxLength = 500): string | null {
+  if (value === null) return null;
+  if (typeof value !== 'string' || value.trim().length > maxLength) invalidField(name);
+  return value.trim() || null;
+}
+
+function nullableDate(value: unknown, name: string): string | null {
+  if (value === null) return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)
+    || Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+    || new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) !== value) invalidField(name);
+  return value;
+}
+
+function nullableMoney(value: unknown, name: string): string | null {
+  if (value === null) return null;
+  const normalized = typeof value === 'number' ? String(value) : value;
+  if (typeof normalized !== 'string' || !/^\d{1,16}(?:\.\d{1,2})?$/.test(normalized)) invalidField(name);
+  return normalized;
+}
+
+function nullableBoolean(value: unknown, name: string): boolean | null {
+  if (value === null || typeof value === 'boolean') return value;
+  return invalidField(name);
+}
+
+function validatedProfile(body: unknown): Array<[ProfileField, string | boolean | null]> {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid profile');
+  const input = body as Record<string, unknown>;
+  const fields = Object.keys(input).filter((key): key is ProfileField => key in PROFILE_FIELDS);
+  if (fields.length === 0 || Object.keys(input).some((key) => !(key in PROFILE_FIELDS))) {
+    throw new Error('Profile requires supported fields');
+  }
+  return fields.map((field) => {
+    const value = input[field];
+    if (field === 'activityStartedAt') return [field, nullableDate(value, field)];
+    if (field === 'shareCapital' || field === 'annualRevenue') return [field, nullableMoney(value, field)];
+    if (field === 'isHeadquarters' || field === 'isSmallBusiness') return [field, nullableBoolean(value, field)];
+    return [field, nullableText(value, field, field === 'activityDescription' ? 4000 : 255)];
+  });
+}
+
+function validatedAddress(body: unknown): Array<[AddressField, string | null]> {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid address');
+  const input = body as Record<string, unknown>;
+  const fields = Object.keys(input).filter((key): key is AddressField => key in ADDRESS_FIELDS);
+  if (fields.length === 0 || Object.keys(input).some((key) => !(key in ADDRESS_FIELDS))) {
+    throw new Error('Address requires supported fields');
+  }
+  return fields.map((field) => [field, nullableText(input[field], field, field === 'complement' ? 500 : 255)]);
+}
+
 function context(req: AuthRequest, res: Response) {
   if (!req.user) {
     res.status(401).json({ error: 'Authentication required' });
@@ -118,10 +210,12 @@ export async function getCompany(req: AuthRequest, res: Response) {
   try {
     const company = await withTenantTransaction(scoped.user, async (client) => {
       const found = await client.query(
-        `SELECT id, identification_type, tax_id, name, status, requested_at,
-                decided_at, created_at, updated_at
-           FROM companies
-          WHERE id = $1 AND tenant_id = $2 AND office_id = $3`,
+        `SELECT id, identification_type, tax_id, name, legal_name, trade_name,
+                is_headquarters, activity_started_at, legal_nature, municipal_registration,
+                state_registration, suframa_registration, cei, caepf, primary_cnae_code,
+                preparation_cnae_code, activity_description, share_capital, annual_revenue,
+                is_small_business, status, requested_at, decided_at, created_at, updated_at
+           FROM companies WHERE id = $1 AND tenant_id = $2 AND office_id = $3`,
         [req.params.id, scoped.user.tenantId, scoped.officeId]
       );
       if (!found.rows[0]) return null;
@@ -132,12 +226,99 @@ export async function getCompany(req: AuthRequest, res: Response) {
           ORDER BY start_date DESC`,
         [req.params.id, scoped.user.tenantId, scoped.officeId]
       );
-      return { ...found.rows[0], taxPeriods: periods.rows };
+      const address = await client.query(
+        `SELECT postal_code, street_type, street, number, complement, neighborhood,
+                district, city_code, city, state, federal_code, is_primary, created_at, updated_at
+           FROM company_addresses
+          WHERE company_id = $1 AND tenant_id = $2 AND office_id = $3 AND is_primary = TRUE`,
+        [req.params.id, scoped.user.tenantId, scoped.officeId]
+      );
+      return { ...found.rows[0], taxPeriods: periods.rows, primaryAddress: address.rows[0] ?? null };
     }, scoped.officeId);
     if (!company) return res.status(404).json({ error: 'Company was not found' });
     return res.json(company);
   } catch (error) {
     return handleError(res, error, 'get company');
+  }
+}
+
+export async function updateCompanyProfile(req: AuthRequest, res: Response) {
+  const scoped = context(req, res);
+  if (!scoped) return;
+  let fields: Array<[ProfileField, string | boolean | null]>;
+  try {
+    fields = validatedProfile(req.body);
+  } catch (error) {
+    return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid profile' });
+  }
+
+  try {
+    const company = await withTenantTransaction(scoped.user, async (client) => {
+      const assignments = fields.map(([field], index) => `${PROFILE_FIELDS[field]} = $${index + 1}`).join(', ');
+      const values = fields.map(([, value]) => value);
+      const result = await client.query(
+        `UPDATE companies SET ${assignments}, updated_at = NOW()
+          WHERE id = $${values.length + 1} AND tenant_id = $${values.length + 2} AND office_id = $${values.length + 3}
+          RETURNING id, legal_name, trade_name, is_headquarters, activity_started_at, legal_nature,
+                    municipal_registration, state_registration, suframa_registration, cei, caepf,
+                    primary_cnae_code, preparation_cnae_code, activity_description, share_capital,
+                    annual_revenue, is_small_business, updated_at`,
+        [...values, req.params.id, scoped.user.tenantId, scoped.officeId]
+      );
+      return result.rows[0] ?? null;
+    }, scoped.officeId);
+    if (!company) return res.status(404).json({ error: 'Company was not found' });
+    return res.json(company);
+  } catch (error) {
+    return handleError(res, error, 'update company profile');
+  }
+}
+
+export async function upsertPrimaryAddress(req: AuthRequest, res: Response) {
+  const scoped = context(req, res);
+  if (!scoped) return;
+  let fields: Array<[AddressField, string | null]>;
+  try {
+    fields = validatedAddress(req.body);
+  } catch (error) {
+    return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid address' });
+  }
+
+  try {
+    const address = await withTenantTransaction(scoped.user, async (client) => {
+      const company = await client.query(
+        `SELECT id FROM companies WHERE id = $1 AND tenant_id = $2 AND office_id = $3 FOR UPDATE`,
+        [req.params.id, scoped.user.tenantId, scoped.officeId]
+      );
+      if (!company.rows[0]) return null;
+      const values = fields.map(([, value]) => value);
+      const columns = fields.map(([field]) => ADDRESS_FIELDS[field]);
+      const existing = await client.query(
+        `SELECT id FROM company_addresses
+          WHERE company_id = $1 AND tenant_id = $2 AND office_id = $3 AND is_primary = TRUE FOR UPDATE`,
+        [req.params.id, scoped.user.tenantId, scoped.officeId]
+      );
+      const result = existing.rows[0]
+        ? await client.query(
+          `UPDATE company_addresses SET ${columns.map((column, index) => `${column} = $${index + 1}`).join(', ')}, updated_at = NOW()
+            WHERE id = $${values.length + 1}
+            RETURNING postal_code, street_type, street, number, complement, neighborhood, district,
+                      city_code, city, state, federal_code, is_primary, created_at, updated_at`,
+          [...values, existing.rows[0].id]
+        )
+        : await client.query(
+          `INSERT INTO company_addresses (id, tenant_id, office_id, company_id, ${columns.join(', ')}, is_primary)
+           VALUES (gen_random_uuid()::TEXT, $${values.length + 1}, $${values.length + 2}, $${values.length + 3}, ${columns.map((_, index) => `$${index + 1}`).join(', ')}, TRUE)
+           RETURNING postal_code, street_type, street, number, complement, neighborhood, district,
+                     city_code, city, state, federal_code, is_primary, created_at, updated_at`,
+          [...values, scoped.user.tenantId, scoped.officeId, req.params.id]
+        );
+      return result.rows[0];
+    }, scoped.officeId);
+    if (!address) return res.status(404).json({ error: 'Company was not found' });
+    return res.json(address);
+  } catch (error) {
+    return handleError(res, error, 'upsert primary company address');
   }
 }
 

@@ -1,0 +1,16 @@
+import { Link, useParams } from 'react-router-dom'
+import { PILLARS } from './pillars'
+import { useOffice } from '@/contexts/OfficeContext'
+
+export function WorkHome() {
+  const { pillarId } = useParams()
+  const pillar = PILLARS.find(item => item.id === pillarId)
+  const { activeOffice } = useOffice()
+  return <div className="work-home">
+    <div className="flex justify-between items-end gap-4 mb-7"><div><p className="portal-eyebrow">Superior Contábil</p><h1 className="text-3xl font-semibold mt-2">{pillar?.label ?? 'Seu espaço de trabalho'}</h1></div><p className="hidden sm:block text-sm text-graphite-600">{activeOffice?.name ?? 'Selecione um escritório para começar'}</p></div>
+    <section className="information-reserve" aria-labelledby="information-title"><div className="reserve-symbol" aria-hidden="true">i</div><div><h2 id="information-title" className="font-medium">Informações importantes</h2><p className="text-sm text-graphite-600 mt-1">Espaço reservado para os destaques do seu escritório. Conteúdo a definir.</p></div><span className="portal-tag">Em planejamento</span></section>
+    <section aria-label="Áreas de trabalho" className="pillar-grid">{PILLARS.map(item => <Link key={item.id} aria-label={item.label} to={`/app/pillars/${item.id}`} aria-current={item.id === pillarId ? 'page' : undefined} className="pillar-shortcut"><span className="pillar-mark">{item.mark}</span><span>{item.label}</span><span className="pillar-arrow" aria-hidden="true">↗</span></Link>)}</section>
+    <div className="home-work-grid"><section className="agent-region" aria-labelledby="agent-title"><span className="portal-eyebrow">Assistente Superior</span><div className="agent-center"><span className="agent-emblem" aria-hidden="true">✦</span><h2 id="agent-title">Como podemos avançar hoje?</h2><p>Um espaço para conversar sobre o seu trabalho.</p><div className="flex flex-wrap justify-center gap-2 mt-6"><span className="portal-tag">{pillar?.label ?? 'Todos os pilares'}</span><span className="portal-tag">Empresa não selecionada</span></div>{pillar && <div className="mt-5 text-sm">{pillar.id !== 'personnel' && <p>Rotinas de {pillar.label} em breve.</p>}<Link className="portal-link mt-3 inline-block" to={`/app/companies?pillar=${pillar.id}`}>Selecionar empresa para esta área →</Link></div>}</div><label className="sr-only" htmlFor="agent-prompt">Conversa com o agente</label><div className="agent-composer"><textarea id="agent-prompt" disabled placeholder="Conversa com o agente disponível em breve" rows={2} /><button disabled aria-label="Enviar mensagem">↑</button></div><p className="text-xs text-graphite-600 mt-3">Integração com o agente ainda não disponível.</p></section>
+    <aside className="agenda-region" aria-labelledby="agenda-title"><div className="flex justify-between items-center"><h2 id="agenda-title" className="font-semibold">Agenda</h2><span aria-hidden="true">▦</span></div><p className="text-sm text-graphite-600 mt-2">Prazos e eventos, no seu contexto.</p><div className="calendar-reserve"><span aria-hidden="true">▦</span><p>Calendário compacto</p><small>Espaço reservado · integração futura</small></div><h3 className="text-sm font-semibold border-t pt-5">Próximos eventos</h3><p className="text-sm text-graphite-600 mt-3">A origem dos eventos e os filtros serão definidos em uma próxima etapa.</p></aside></div>
+  </div>
+}

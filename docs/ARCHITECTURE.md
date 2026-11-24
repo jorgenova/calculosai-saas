@@ -4,6 +4,74 @@
 
 Boilerplate para SaaS B2B multitenant voltado ao mercado brasileiro. Cada empresa cliente é um **tenant** com isolamento total de dados garantido em três camadas independentes. O objetivo é fornecer uma base de produção — auth, multitenancy, pagamentos, e-mail, CI/CD e infraestrutura — para que cada novo produto parta de um sistema funcionando, não de zero.
 
+## Piloto de folha de pagamento
+
+### Preparação
+
+1. Escolha uma empresa, um escritório e uma competência. Prepare um empregado, um sócio categoria 723 e um caso de referência anonimizado, conferido pelo Departamento Pessoal. Registre política e convenção aplicável, remunerações, benefícios, dependentes, outras fontes, ocorrências e calendário.
+2. Confira CPF e matrícula, o estabelecimento, a lotação, a opção de cadastro do sócio e as rubricas oficiais vigentes. Guarde a referência de S-1000, S-1005, S-1020 e do S-1010 de cada rubrica empregada. Confirme quem pode escrever, aprovar, transmitir e acessar documentos de saúde.
+3. Prepare as autorizações no ambiente escolhido. Confira o titular do certificado ICP-Brasil, a validade e o perfil aplicável da procuração quando houver. Monte certificado e chave PEM como segredos do serviço e use configurações separadas por ambiente.
+
+Para cada ambiente, configure `ESOCIAL_RESTRICTED_CERTIFICATE_PEM`, `ESOCIAL_RESTRICTED_KEY_PEM`, `ESOCIAL_RESTRICTED_TRANSMITTER`, `ESOCIAL_RESTRICTED_XSD_DIRECTORY` e, se necessário, `ESOCIAL_RESTRICTED_KEY_PASSPHRASE`. Use o prefixo `ESOCIAL_PRODUCTION_` para produção. O diretório deve conter o pacote vigente de esquemas oficiais, incluindo as dependências dos XSDs. Os arquivos da chave devem ficar no armazenamento de segredos da implantação. [Documentação técnica do eSocial](https://www.gov.br/esocial/pt-br/documentacao-tecnica/documentacao-tecnica)
+
+### Execução e conferência
+
+| Etapa | Evidência esperada |
+| --- | --- |
+| Cadastros e política | Vínculos ativos, cadastro de admissão preparado fora do fechamento e calendário conferido. |
+| Cálculo e aprovação | Memória versionada por pessoa e diferenças frente ao caso de referência resolvidas pelo DP. |
+| Férias e pagamentos | Datas efetivas, recibos, férias proporcionais à competência de gozo e conferência do líquido sem duplicar adiantamentos. |
+| Entrega externa | A mesma versão aprovada, os recibos por evento, o CPF em S-1200/S-1210 e a conciliação de protocolados antes de transferir a responsabilidade. |
+| Entrega integrada em Produção Restrita | XML assinado e validado, protocolo e retorno por evento, comprovante de fechamento e totalizadores quando devolvidos pelo serviço. |
+| Falhas e permissões | Uma tentativa com timeout, a conciliação com o mesmo identificador, a troca de escritório e a ausência de acesso a empresas e anexos fora da permissão. |
+| Guias | Situações da declaração, do DARF e da GFD conferidas independentemente, com referência de emissão, divergência justificada e comprovante de quitação quando aplicável. |
+
+Para exercitar a API, use o prefixo de folha `/companies/{companyId}/payroll/esocial/{environment}` com autenticação e o cabeçalho `X-Office-Id`. Os caminhos `/registration/{kind}/{id}` e `/deliveries/{month}` oferecem `/xml` para conferir e `/queue` para assinar, validar e preparar eventos elegíveis. Para férias, use `vacations` como tipo de cadastro. Para eventos periódicos, use a versão aprovada, o mapeamento das rubricas e os recibos de origem. Em S-1210, selecione o mês do pagamento efetivo e registre o identificador oficial de cada demonstrativo de origem.
+
+O fluxo periódico integrado atual exige um estabelecimento mapeado e gera demonstrativos separados para vale e saldo. Confirme o mapeamento das rubricas de adiantamento e desconto com o DP. Use o fluxo externo quando a escrituração periódica exigir consolidação entre estabelecimentos, férias, quinzenas contratuais ou contribuições em outras fontes. Admissão, afastamento por férias e S-2300 podem ser preparados fora do fechamento. [Manual Web Geral do eSocial](https://www.gov.br/esocial/pt-br/empresas/manual-web-geral)
+
+A fila só transmite por solicitação explícita com os IDs selecionados e `ESOCIAL_RESTRICTED_TRANSMISSION=enabled`. Use `/deliveries/{month}/queue/dispatch` para o lote periódico e `/registration/queue/dispatch` para o lote cadastral. Use `poll` na rota correspondente para consultar os mesmos IDs. Se ocorrer timeout, preserve o identificador original, recupere o protocolo por um canal oficial e registre a evidência antes de consultar. Uma resposta parcial encerra apenas os eventos identificados no retorno. [Produção Restrita do eSocial](https://www.gov.br/esocial/pt-br/acesso-ao-sistema/ambiente-de-producao-restrita/ambiente-de-producao-restrita/)
+
+O escritório confere a DCTFWeb e emite o DARF nos serviços oficiais da Receita Federal. As remunerações escrituradas alimentam a apuração do FGTS Digital, onde o escritório emite a GFD. O produto registra as evidências e a situação de cada obrigação. [Manual da DCTFWeb](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/manuais/manual-dctfweb/manual-dctfweb-atualizacao-janeiro2025_versao_final.pdf) · [Emissão de GFD](https://www.gov.br/trabalho-e-emprego/pt-br/servicos/empregador/fgtsdigital/comunicados/fgts-digital-gerar-guia-rapida-ou-guia-parametrizada)
+
+### Ativação e suspensão
+
+Registre a aprovação do escritório após conferir as evidências de Produção Restrita. Separe os cadastros, certificados, autorizações e recibos de produção. Após autorizar a competência, habilite `ESOCIAL_PRODUCTION_TRANSMISSION=enabled` na configuração do serviço antes de operar a fila. Remova a configuração de habilitação para suspender novos envios. Continue a consulta dos protocolos já recebidos, preserve a trilha da fila e concilie com o portal antes de transferir a entrega para outro responsável.
+
+O ensaio interno usa dados fictícios, certificado local, esquemas oficiais e transporte simulado. Para registrar a homologação, anote a competência, o responsável do escritório, os protocolos, os recibos, os totalizadores conferidos e os desvios tratados no ambiente oficial.
+
+### Evidências para concluir a homologação
+
+**Conferência do cálculo pelo DP.** Use uma folha de referência anonimizada com competência, data de pagamento, modalidade, salário e jornada, lançamentos e valores esperados por rubrica. Compare a versão calculada com a referência linha a linha e guarde, para cada diferença, o valor esperado, o calculado e a regra confirmada pelo DP. A aprovação da conferência deve identificar a referência utilizada, a data e o responsável.
+
+O caso automatizado de novembro de 2026 em `packages/backend/tests/payrollCalculation.test.cjs` oferece um ponto de partida reproduzível para a revisão. Ele usa salário de R$ 3.000,00, 10 horas extras a 50%, 2 horas de falta, 8 horas justificadas, VT de R$ 120,00 e desconto de VR de R$ 40,00. Registre um segundo caso com IRRF positivo se a referência principal tiver retenção zero.
+
+| Rubrica ou total | Resultado do teste local |
+| --- | ---: |
+| Salário-base | R$ 3.000,00 |
+| Horas extras | R$ 204,60 |
+| Faltas | R$ 27,28 |
+| Afastamento remunerado | R$ 0,00 de desconto |
+| Desconto de VT | R$ 120,00 |
+| Desconto de VR | R$ 40,00 |
+| Base de INSS e FGTS | R$ 3.177,32 |
+| INSS | R$ 269,86 |
+| IRRF | R$ 0,00 |
+| FGTS do empregador | R$ 254,18 |
+| Líquido | R$ 2.747,46 |
+
+**Ensaio no eSocial.** Use um ambiente do serviço configurado para Produção Restrita e um empregador de teste autorizado. Comece com um estabelecimento, um empregado e um sócio remunerado. Confirme as tabelas e os vínculos no ambiente e mantenha a mesma versão aprovada na comparação. Registre a competência de remuneração e, se o pagamento ocorrer no mês seguinte, acompanhe também o fechamento do mês de pagamento. [Produção Restrita do eSocial](https://www.gov.br/esocial/pt-br/acesso-ao-sistema/ambiente-de-producao-restrita/ambiente-de-producao-restrita/)
+
+| Evidência | Referência a registrar durante o ensaio |
+| --- | --- |
+| Cadastros e tabelas | Recibos e vigências do empregador, estabelecimento, lotação e rubricas. Recibo do S-2200 e do S-2300 se adotado. |
+| Remuneração | Versão aprovada, identificadores dos demonstrativos do empregado e do sócio, protocolo e recibos do S-1200. |
+| Pagamento | Datas efetivas de teste, mês de pagamento, demonstrativos de origem, valores líquidos, protocolo e recibos do S-1210. |
+| Encerramento | Protocolo e recibo do S-1299 de cada mês aplicável, totalizadores recebidos e diferenças justificadas. |
+| Aprovação do escritório | Responsável, data, evidência da revisão do cálculo, resultado do ensaio e decisão sobre ativação e suspensão. |
+
+Guarde os recibos e retornos no ambiente de homologação ou no repositório de evidências autorizado pelo escritório.
+
 ---
 
 ## Diagrama de componentes

@@ -20,7 +20,7 @@ type OfficeContextValue = {
 const OfficeContext = createContext<OfficeContextValue | null>(null)
 
 export function OfficeProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const [offices, setOffices] = useState<Office[]>([])
   const [activeOfficeId, setActiveOfficeId] = useState<string | null>(
     () => localStorage.getItem('activeOfficeId'),
@@ -28,6 +28,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
 
   const refreshOffices = useCallback(async () => {
+    if (authLoading) return
     if (!user) {
       setOffices([])
       setActiveOfficeId(null)
@@ -49,7 +50,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [user])
+  }, [user, authLoading])
 
   useEffect(() => { void refreshOffices() }, [refreshOffices])
   useEffect(() => {

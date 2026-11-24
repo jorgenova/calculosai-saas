@@ -14,9 +14,9 @@ export const Card: CardComponent = ({ className, children }) => (
 )
 
 Card.Header = function CardHeader({ children }) {
-  return <div className="px-6 py-4 border-b border-graphite-100">{children}</div>
+  return <div className="px-4 py-3 border-b border-graphite-100">{children}</div>
 }
 
 Card.Body = function CardBody({ children }) {
-  return <div className="p-6">{children}</div>
+  return <div className="p-4">{children}</div>
 }

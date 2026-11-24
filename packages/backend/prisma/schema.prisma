@@ -35,6 +35,9 @@ model User {
 
   tenant         Tenant         @relation(fields: [tenantId], references: [id])
   officeAccesses OfficeAccess[]
+  payrollAccesses  PayrollAccess[]
+  payrollApprovals PayrollVersion[]
+  payrollAudits    PayrollAudit[]
 
   @@unique([email, tenantId])
   @@unique([id, tenantId])
@@ -70,6 +73,7 @@ model Office {
   accesses    OfficeAccess[]
   invitations InvitationOffice[]
   companies   Company[]
+  payrollEmployers PayrollEmployer[]
 
   @@unique([id, tenantId])
   @@index([tenantId])
@@ -112,6 +116,22 @@ model Company {
   identificationType    IdentificationType @map("identification_type")
   taxId                 String             @map("tax_id")
   name                  String
+  legalName             String?            @map("legal_name")
+  tradeName             String?            @map("trade_name")
+  isHeadquarters        Boolean?           @map("is_headquarters")
+  activityStartedAt     DateTime?          @db.Date @map("activity_started_at")
+  legalNature           String?            @map("legal_nature")
+  municipalRegistration String?            @map("municipal_registration")
+  stateRegistration     String?            @map("state_registration")
+  suframaRegistration   String?            @map("suframa_registration")
+  cei                   String?
+  caepf                 String?
+  primaryCnaeCode       String?            @map("primary_cnae_code")
+  preparationCnaeCode   String?            @map("preparation_cnae_code")
+  activityDescription   String?            @map("activity_description")
+  shareCapital          Decimal?           @db.Decimal(18, 2) @map("share_capital")
+  annualRevenue         Decimal?           @db.Decimal(18, 2) @map("annual_revenue")
+  isSmallBusiness       Boolean?           @map("is_small_business")
   status                CompanyStatus      @default(active)
   requestedByUserId     String?            @map("requested_by_user_id")
   requestedAt           DateTime?          @map("requested_at")
@@ -122,11 +142,45 @@ model Company {
 
   office     Office             @relation(fields: [officeId, tenantId], references: [id, tenantId])
   taxPeriods CompanyTaxPeriod[]
+  addresses  CompanyAddress[]
+  payrollPeople              PayrollPerson[]
+  payrollPolicies            PayrollPolicy[]
+  payrollPeriods             PayrollPeriod[]
+  payrollAccesses            PayrollAccess[]
+  payrollEmployerMemberships PayrollEmployerMembership[]
+  payrollAudits              PayrollAudit[]
+  payrollDocuments           PayrollDocument[]
 
   @@unique([officeId, identificationType, taxId])
   @@unique([id, tenantId, officeId])
   @@index([tenantId, officeId, status])
   @@map("companies")
+}
+
+model CompanyAddress {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  officeId     String   @map("office_id")
+  companyId    String   @map("company_id")
+  postalCode   String?  @map("postal_code")
+  streetType   String?  @map("street_type")
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  district     String?
+  cityCode     String?  @map("city_code")
+  city         String?
+  state        String?
+  federalCode  String?  @map("federal_code")
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId], onDelete: Cascade)
+
+  @@index([tenantId, officeId, companyId])
+  @@map("company_addresses")
 }
 
 model CompanyTaxPeriod {
@@ -143,6 +197,418 @@ model CompanyTaxPeriod {
 
   @@index([tenantId, officeId, companyId])
   @@map("company_tax_periods")
+}
+
+model PayrollAccess {
+  companyId  String @map("company_id")
+  tenantId   String @map("tenant_id")
+  officeId   String @map("office_id")
+  userId     String @map("user_id")
+  permission String
+
+  company Company @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId], onDelete: Cascade)
+  user    User    @relation(fields: [userId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([companyId, userId, permission])
+  @@map("payroll_accesses")
+}
+
+model PayrollPerson {
+  id        String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId String    @map("company_id")
+  tenantId  String    @map("tenant_id")
+  officeId  String    @map("office_id")
+  cpf       String
+  fullName  String    @map("full_name")
+  birthDate DateTime? @map("birth_date") @db.Date
+  details   Json      @default("{}")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  company     Company             @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId])
+  engagements PayrollEngagement[]
+  dependents  PayrollDependent[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@unique([companyId, cpf])
+  @@map("payroll_people")
+}
+
+model PayrollEngagement {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId                 String    @map("company_id")
+  tenantId                  String    @map("tenant_id")
+  officeId                  String    @map("office_id")
+  personId                  String    @map("person_id")
+  kind                      String
+  registration              String?
+  categoryCode              Int?      @map("category_code")
+  employerId                String?   @map("employer_id")
+  establishmentRegistration String?   @map("establishment_registration")
+  taxAllocationCode         String?   @map("tax_allocation_code")
+  startsOn                  DateTime? @map("starts_on") @db.Date
+  endsOn                    DateTime? @map("ends_on") @db.Date
+  status                    String    @default("draft")
+  details                   Json      @default("{}")
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  person       PayrollPerson              @relation(fields: [personId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  membership   PayrollEmployerMembership? @relation(fields: [employerId, companyId, tenantId, officeId], references: [employerId, companyId, tenantId, officeId])
+  compensation PayrollCompensation[]
+  inputs       PayrollInput[]
+  statements   PayrollStatement[]
+  documents    PayrollDocument[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@unique([companyId, registration])
+  @@unique([employerId, registration])
+  @@index([companyId, personId])
+  @@map("payroll_engagements")
+}
+
+model PayrollCompensation {
+  id           String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId    String    @map("company_id")
+  tenantId     String    @map("tenant_id")
+  officeId     String    @map("office_id")
+  engagementId String    @map("engagement_id")
+  amount       Decimal   @db.Decimal(14, 2)
+  unit         String
+  startsOn     DateTime  @map("starts_on") @db.Date
+  endsOn       DateTime? @map("ends_on") @db.Date
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  engagement PayrollEngagement @relation(fields: [engagementId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+
+  @@unique([engagementId, startsOn])
+  @@map("payroll_compensation")
+}
+
+model PayrollDependent {
+  id              String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId       String    @map("company_id")
+  tenantId        String    @map("tenant_id")
+  officeId        String    @map("office_id")
+  personId        String    @map("person_id")
+  cpf             String?
+  fullName        String    @map("full_name")
+  birthDate       DateTime  @map("birth_date") @db.Date
+  relationship    String
+  relationshipDescription String? @map("relationship_description")
+  incomeTax       Boolean   @default(false) @map("income_tax")
+  familyAllowance Boolean   @default(false) @map("family_allowance")
+  startsOn        DateTime  @map("starts_on") @db.Date
+  endsOn          DateTime? @map("ends_on") @db.Date
+
+  person PayrollPerson @relation(fields: [personId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+
+  @@index([personId, startsOn])
+  @@map("payroll_dependents")
+}
+
+model PayrollPolicy {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId          String    @map("company_id")
+  tenantId           String    @map("tenant_id")
+  officeId           String    @map("office_id")
+  salaryMode         String    @map("salary_mode")
+  startsOn           DateTime  @map("starts_on") @db.Date
+  endsOn             DateTime? @map("ends_on") @db.Date
+  agreementReference String?   @map("agreement_reference")
+  rules              Json
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  company  Company          @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId])
+  versions PayrollVersion[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@unique([companyId, startsOn])
+  @@map("payroll_policies")
+}
+
+model PayrollPeriod {
+  id         String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId  String   @map("company_id")
+  tenantId   String   @map("tenant_id")
+  officeId   String   @map("office_id")
+  competence DateTime @db.Date
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  company  Company          @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId])
+  versions PayrollVersion[]
+  inputs   PayrollInput[]
+  guides   PayrollGuide[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@unique([companyId, competence])
+  @@map("payroll_periods")
+}
+
+model PayrollInput {
+  id           String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId    String    @map("company_id")
+  tenantId     String    @map("tenant_id")
+  officeId     String    @map("office_id")
+  engagementId String    @map("engagement_id")
+  periodId     String?   @map("period_id")
+  kind         String
+  startsOn     DateTime  @map("starts_on") @db.Date
+  endsOn       DateTime? @map("ends_on") @db.Date
+  value        Json
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  engagement PayrollEngagement @relation(fields: [engagementId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  period     PayrollPeriod?    @relation(fields: [periodId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  documents  PayrollDocument[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@index([engagementId, startsOn])
+  @@index([periodId])
+  @@map("payroll_inputs")
+}
+
+model PayrollVersion {
+  id               String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId        String    @map("company_id")
+  tenantId         String    @map("tenant_id")
+  officeId         String    @map("office_id")
+  periodId         String    @map("period_id")
+  policyId         String    @map("policy_id")
+  revision         Int
+  sourceDigest     String    @map("source_digest")
+  inputs           Json
+  totals           Json
+  correctionReason String?   @map("correction_reason")
+  approvedAt       DateTime? @map("approved_at") @db.Timestamptz
+  approvedByUserId String?   @map("approved_by_user_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  period     PayrollPeriod      @relation(fields: [periodId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  policy     PayrollPolicy      @relation(fields: [policyId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  approvedBy User?              @relation(fields: [approvedByUserId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  statements PayrollStatement[]
+  documents  PayrollDocument[]
+  events     PayrollEvent[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@unique([periodId, revision])
+  @@map("payroll_versions")
+}
+
+model PayrollStatement {
+  id              String  @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId       String  @map("company_id")
+  tenantId        String  @map("tenant_id")
+  officeId        String  @map("office_id")
+  versionId       String  @map("version_id")
+  engagementId    String  @map("engagement_id")
+  reference       String
+  kind            String
+  gross           Decimal @db.Decimal(14, 2)
+  deductions      Decimal @db.Decimal(14, 2)
+  net             Decimal @db.Decimal(14, 2)
+  employerCharges Decimal @map("employer_charges") @db.Decimal(14, 2)
+  items           Json
+
+  version    PayrollVersion    @relation(fields: [versionId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  engagement PayrollEngagement @relation(fields: [engagementId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  payments   PayrollPayment[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@unique([versionId, reference])
+  @@map("payroll_statements")
+}
+
+model PayrollPayment {
+  id                String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId         String    @map("company_id")
+  tenantId          String    @map("tenant_id")
+  officeId          String    @map("office_id")
+  statementId       String    @map("statement_id")
+  dueOn             DateTime  @map("due_on") @db.Date
+  paidOn            DateTime? @map("paid_on") @db.Date
+  amount            Decimal   @db.Decimal(14, 2)
+  kind              String    @default("regular")
+  taxableAmount     Decimal?  @map("taxable_amount") @db.Decimal(14, 2)
+  legalDeductions   Decimal?  @map("legal_deductions") @db.Decimal(14, 2)
+  withheldIncomeTax Decimal?  @map("withheld_income_tax") @db.Decimal(14, 2)
+  paidAmount        Decimal?  @map("paid_amount") @db.Decimal(14, 2)
+  evidenceReference String?   @map("evidence_reference")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  statement PayrollStatement  @relation(fields: [statementId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  documents PayrollDocument[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@index([companyId, paidOn])
+  @@map("payroll_payments")
+}
+
+model PayrollDocument {
+  id           String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId    String   @map("company_id")
+  tenantId     String   @map("tenant_id")
+  officeId     String   @map("office_id")
+  versionId    String?  @map("version_id")
+  engagementId String?  @map("engagement_id")
+  paymentId    String?  @map("payment_id")
+  inputId      String?  @map("input_id")
+  kind         String
+  storageKey   String   @unique @map("storage_key")
+  contentType  String   @map("content_type")
+  content      Bytes?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  company    Company            @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId])
+  version    PayrollVersion?    @relation(fields: [versionId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  engagement PayrollEngagement? @relation(fields: [engagementId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  payment    PayrollPayment?    @relation(fields: [paymentId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  input      PayrollInput?      @relation(fields: [inputId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  guides     PayrollGuide[]
+
+  @@unique([id, companyId, tenantId, officeId])
+  @@index([companyId, versionId])
+  @@map("payroll_documents")
+}
+
+model PayrollEmployer {
+  id               String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId         String   @map("tenant_id")
+  officeId         String   @map("office_id")
+  registrationRoot String   @map("registration_root")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  office      Office                      @relation(fields: [officeId, tenantId], references: [id, tenantId])
+  memberships PayrollEmployerMembership[]
+  deliveries  PayrollDelivery[]
+  settings    PayrollEmployerSetting[]
+
+  @@unique([id, tenantId, officeId])
+  @@unique([officeId, registrationRoot])
+  @@map("payroll_employers")
+}
+
+model PayrollEmployerMembership {
+  employerId  String              @map("employer_id")
+  companyId   String              @map("company_id")
+  tenantId    String              @map("tenant_id")
+  officeId    String              @map("office_id")
+  employer    PayrollEmployer     @relation(fields: [employerId, tenantId, officeId], references: [id, tenantId, officeId])
+  company     Company             @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId])
+  engagements PayrollEngagement[]
+  events      PayrollEvent[]
+
+  @@id([employerId, companyId, tenantId, officeId])
+  @@unique([companyId, tenantId, officeId])
+  @@map("payroll_employer_memberships")
+}
+
+model PayrollDelivery {
+  id          String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  employerId  String   @map("employer_id")
+  tenantId    String   @map("tenant_id")
+  officeId    String   @map("office_id")
+  environment String
+  competence  DateTime @db.Date
+  mode        String
+  pendingReconciliation String[] @default([]) @map("pending_reconciliation")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  employer PayrollEmployer @relation(fields: [employerId, tenantId, officeId], references: [id, tenantId, officeId])
+  events   PayrollEvent[]
+
+  @@unique([id, employerId, tenantId, officeId, environment])
+  @@unique([employerId, environment, competence])
+  @@map("payroll_deliveries")
+}
+
+model PayrollEmployerSetting {
+  employerId  String   @map("employer_id")
+  tenantId    String   @map("tenant_id")
+  officeId    String   @map("office_id")
+  environment String
+  data        Json
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  employer PayrollEmployer @relation(fields: [employerId, tenantId, officeId], references: [id, tenantId, officeId])
+
+  @@id([employerId, environment])
+  @@map("payroll_employer_settings")
+}
+
+model PayrollEvent {
+  id              String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId       String   @map("company_id")
+  tenantId        String   @map("tenant_id")
+  officeId        String   @map("office_id")
+  employerId      String   @map("employer_id")
+  deliveryId      String?  @map("delivery_id")
+  versionId       String?  @map("version_id")
+  environment     String
+  eventType       String   @map("event_type")
+  eventKey        String   @map("event_key")
+  origin          String
+  status          String
+  layoutVersion   String?  @map("layout_version")
+  protocol        String?
+  receipt         String?
+  replacesReceipt String?  @map("replaces_receipt")
+  outcome         Json?
+  signedXml       String?  @map("signed_xml")
+  submissionKey   String?  @map("submission_key")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  membership PayrollEmployerMembership @relation(fields: [employerId, companyId, tenantId, officeId], references: [employerId, companyId, tenantId, officeId])
+  delivery   PayrollDelivery?          @relation(fields: [deliveryId, employerId, tenantId, officeId, environment], references: [id, employerId, tenantId, officeId, environment])
+  version    PayrollVersion?           @relation(fields: [versionId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+
+  @@unique([employerId, environment, eventKey])
+  @@unique([employerId, environment, submissionKey])
+  @@index([deliveryId, status])
+  @@map("payroll_events")
+}
+
+model PayrollGuide {
+  id                String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId         String    @map("company_id")
+  tenantId          String    @map("tenant_id")
+  officeId          String    @map("office_id")
+  periodId          String    @map("period_id")
+  documentId        String?   @map("document_id")
+  kind              String
+  status            String
+  officialReference String?   @map("official_reference")
+  amount            Decimal?  @db.Decimal(14, 2)
+  expectedAmount    Decimal?  @map("expected_amount") @db.Decimal(14, 2)
+  paymentReference  String?   @map("payment_reference")
+  dueOn             DateTime? @map("due_on") @db.Date
+  paidOn            DateTime? @map("paid_on") @db.Date
+  discrepancyReason String?   @map("discrepancy_reason")
+
+  period   PayrollPeriod    @relation(fields: [periodId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+  document PayrollDocument? @relation(fields: [documentId, companyId, tenantId, officeId], references: [id, companyId, tenantId, officeId])
+
+  @@index([periodId, kind])
+  @@map("payroll_guides")
+}
+
+model PayrollAudit {
+  id         String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  companyId  String   @map("company_id")
+  tenantId   String   @map("tenant_id")
+  officeId   String   @map("office_id")
+  actorId    String   @map("actor_id")
+  action     String
+  targetId   String   @map("target_id")
+  happenedAt DateTime @default(now()) @map("happened_at") @db.Timestamptz
+
+  company Company @relation(fields: [companyId, tenantId, officeId], references: [id, tenantId, officeId])
+  actor   User    @relation(fields: [actorId, tenantId], references: [id, tenantId])
+
+  @@index([companyId, happenedAt])
+  @@map("payroll_audits")
 }
 
 enum Role {
