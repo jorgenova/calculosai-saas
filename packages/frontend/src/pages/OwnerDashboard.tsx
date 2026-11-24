@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/api/client'
-import { CompaniesPanel } from '@/components/CompaniesPanel'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOffice } from '@/contexts/OfficeContext'
-import { AppShell, Badge, Button, Card, Input, Spinner } from '@/design-system'
+import { Badge, Button, Card, Input, Spinner } from '@/design-system'
 
 type Account = { id: string; name: string; slug: string; status: string }
 type Attendant = { id: string; name: string; email: string; office_ids: string[] }
@@ -74,7 +73,7 @@ export function OwnerDashboard() {
   if (loading) return <div className="min-h-dvh flex items-center justify-center"><Spinner className="h-6 w-6" /></div>
 
   return (
-    <AppShell tenantName={account?.name} roleLabel="Proprietário" pageTitle="Gestão da conta" onLogout={() => { logout(); navigate('/entrar') }}>
+    <div className="space-y-6"><h1 className="text-h1">Escritórios e equipe</h1>
       {(message || error) && <Badge status={error ? 'danger' : 'success'}>{error || message}</Badge>}
       <Card><Card.Header><h2 className="text-h3 text-graphite-900">Conta</h2></Card.Header><Card.Body>
         <dl className="grid sm:grid-cols-3 gap-4"><div><dt className="text-xs text-graphite-500">Nome</dt><dd>{account?.name}</dd></div><div><dt className="text-xs text-graphite-500">Identificador</dt><dd className="font-mono">{account?.slug}</dd></div><div><dt className="text-xs text-graphite-500">Status</dt><dd>{account?.status}</dd></div></dl>
@@ -95,7 +94,7 @@ export function OwnerDashboard() {
         {attendants.length === 0 ? <p className="text-sm text-graphite-500">Nenhum atendente cadastrado.</p> : <div className="space-y-4">{attendants.map(attendant => <div key={attendant.id} className="border-b border-graphite-100 pb-3"><p className="font-medium">{attendant.name} <span className="font-normal text-graphite-500">{attendant.email}</span></p><div className="flex flex-wrap gap-2 mt-2">{offices.map(office => <Button key={office.id} size="sm" variant={attendant.office_ids.includes(office.id) ? 'primary' : 'secondary'} onClick={() => void toggleAccess(attendant, office.id)}>{office.name}</Button>)}</div></div>)}</div>}
       </Card.Body></Card>
 
-      <CompaniesPanel />
-    </AppShell>
+
+    </div>
   )
 }

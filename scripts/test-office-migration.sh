@@ -10,6 +10,7 @@ DB_ADMIN="postgres"
 LEGACY_SQL="$PROJECT_ROOT/scripts/test-db/legacy-office-snapshot.sql"
 EXPANSION_SQL="$PROJECT_ROOT/packages/backend/prisma/migrations/0004_office_hierarchy_and_companies/migration.sql"
 CONTRACTION_SQL="$PROJECT_ROOT/packages/backend/prisma/migrations/0005_remove_tenant_cnpj/migration.sql"
+PROFILE_SQL="$PROJECT_ROOT/packages/backend/prisma/migrations/0007_expand_company_profile/migration.sql"
 
 "$PROJECT_ROOT/scripts/test-db.sh" start >/dev/null
 
@@ -91,4 +92,24 @@ psql_admin --dbname="$DB_NAME" \
   END \$verify\$" \
   --command='ROLLBACK' >/dev/null
 
-echo 'OK: legacy snapshot, expansion rollback, backfill, contract, and CNPJ recovery were validated.'
+# Apply the Company profile migration and validate its additive, scoped structures.
+psql_admin --dbname="$DB_NAME" --single-transaction --file="$PROFILE_SQL" >/dev/null
+psql_admin --dbname="$DB_NAME" --command="DO \$verify\$ BEGIN
+  IF to_regclass('public.company_addresses') IS NULL THEN
+    RAISE EXCEPTION 'company_addresses was not created';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'companies' AND column_name = 'legal_name'
+  ) THEN
+    RAISE EXCEPTION 'Company profile columns were not created';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = 'company_addresses' AND indexname = 'company_addresses_one_primary_idx'
+  ) THEN
+    RAISE EXCEPTION 'primary Company address index was not created';
+  END IF;
+END \$verify\$" >/dev/null
+
+echo 'OK: legacy snapshot, expansion rollback, backfill, contract, profile migration, and CNPJ recovery were validated.'

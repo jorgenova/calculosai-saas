@@ -1,4 +1,5 @@
 const { randomUUID } = require('node:crypto')
+const assert = require('node:assert/strict')
 const { Client } = require('pg')
 
 const adminUrl = process.env.DATABASE_URL
@@ -21,6 +22,70 @@ async function setContext(tenantId, userId, role, officeId) {
   if (officeId) await app.query('SELECT set_config($1, $2, true)', ['app.current_office', officeId])
 }
 
+async function verifyPayrollIsolation() {
+  const { tenantA, ownerA, attendantA, officeA1, officeA2 } = ids
+  const companyA = (await admin.query('SELECT id FROM companies WHERE office_id = $1', [officeA1])).rows[0].id
+  const otherCompany = randomUUID()
+  const documentId = randomUUID()
+  await app.query('BEGIN')
+  try {
+    await setContext(tenantA, ownerA, 'owner', officeA1)
+    await app.query('SELECT set_config($1, $2, true)', ['app.current_company', companyA])
+    await app.query(
+      "INSERT INTO companies (id, tenant_id, office_id, identification_type, tax_id, name) VALUES ($1, $2, $3, 'cpf', '52998224725', 'Other Company')",
+      [otherCompany, tenantA, officeA1],
+    )
+    const { rows: [person] } = await app.query(
+      "INSERT INTO payroll_people (tenant_id, office_id, company_id, cpf, full_name) VALUES ($1, $2, $3, '52998224725', 'Test Worker') RETURNING id",
+      [tenantA, officeA1, companyA],
+    )
+    const { rows: [engagement] } = await app.query(
+      "INSERT INTO payroll_engagements (tenant_id, office_id, company_id, person_id, kind) VALUES ($1, $2, $3, $4, 'employee') RETURNING id",
+      [tenantA, officeA1, companyA, person.id],
+    )
+    const { rows: [input] } = await app.query(
+      "INSERT INTO payroll_inputs (tenant_id, office_id, company_id, engagement_id, kind, starts_on, value) VALUES ($1, $2, $3, $4, 'leave', '2026-11-01', '{}') RETURNING id",
+      [tenantA, officeA1, companyA, engagement.id],
+    )
+    await app.query(
+      "INSERT INTO payroll_documents (id, tenant_id, office_id, company_id, input_id, kind, storage_key, content_type) VALUES ($1, $2, $3, $4, $5, 'health_attachment', $6, 'application/pdf')",
+      [documentId, tenantA, officeA1, companyA, input.id, randomUUID()],
+    )
+    await app.query(
+      "INSERT INTO payroll_accesses (tenant_id, office_id, company_id, user_id, permission) VALUES ($1, $2, $3, $4, 'read')",
+      [tenantA, officeA1, companyA, attendantA],
+    )
+
+    await setContext(tenantA, attendantA, 'attendant', officeA1)
+    assert.equal((await app.query('SELECT id FROM payroll_people')).rowCount, 1)
+    assert.equal((await app.query('SELECT id FROM payroll_inputs')).rowCount, 1)
+    assert.equal((await app.query('SELECT id FROM payroll_documents')).rowCount, 0)
+    assert.equal((await app.query("UPDATE payroll_people SET full_name = 'Unauthorized' WHERE id = $1", [person.id])).rowCount, 0)
+
+    await app.query('SELECT set_config($1, $2, true)', ['app.current_company', otherCompany])
+    assert.equal((await app.query('SELECT id FROM payroll_people')).rowCount, 0)
+
+    await setContext(tenantA, ownerA, 'owner', officeA2)
+    await app.query('SELECT set_config($1, $2, true)', ['app.current_company', companyA])
+    assert.equal((await app.query('SELECT id FROM payroll_people')).rowCount, 0)
+
+    await setContext(tenantA, ownerA, 'owner', officeA1)
+    await app.query(
+      "INSERT INTO payroll_accesses (tenant_id, office_id, company_id, user_id, permission) VALUES ($1, $2, $3, $4, 'health_documents')",
+      [tenantA, officeA1, companyA, attendantA],
+    )
+    await setContext(tenantA, attendantA, 'attendant', officeA1)
+    assert.deepEqual((await app.query('SELECT id FROM payroll_documents')).rows, [{ id: documentId }])
+    await app.query(
+      "INSERT INTO payroll_audits (tenant_id, office_id, company_id, actor_id, action, target_id) VALUES ($1, $2, $3, $4, 'read_health_document', $5)",
+      [tenantA, officeA1, companyA, attendantA, documentId],
+    )
+    assert.equal((await app.query('SELECT id FROM payroll_audits')).rowCount, 1)
+  } finally {
+    await app.query('ROLLBACK')
+  }
+}
+
 async function verify() {
   await admin.connect(); await app.connect()
   try {
@@ -28,7 +93,13 @@ async function verify() {
     if (!role.rows[0] || role.rows[0].rolbypassrls || role.rows[0].rolsuper) {
       throw new Error('app_user has unsafe privileges')
     }
-    const expected = ['companies', 'company_tax_periods', 'invitation_offices', 'invitations', 'office_accesses', 'offices', 'tenants', 'users']
+    const expected = [
+      'companies', 'company_addresses', 'company_tax_periods', 'invitation_offices', 'invitations', 'office_accesses', 'offices', 'tenants', 'users',
+      'payroll_accesses', 'payroll_audits', 'payroll_compensation', 'payroll_deliveries', 'payroll_dependents',
+      'payroll_documents', 'payroll_employer_memberships', 'payroll_employer_settings', 'payroll_employers', 'payroll_engagements', 'payroll_events',
+      'payroll_guides', 'payroll_inputs', 'payroll_payments', 'payroll_people', 'payroll_periods', 'payroll_policies',
+      'payroll_statements', 'payroll_versions',
+    ]
     const tables = await admin.query(
       `SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class
         WHERE relname = ANY($1::TEXT[]) ORDER BY relname`, [expected]
@@ -74,9 +145,27 @@ async function verify() {
 
     await app.query('BEGIN')
     await setContext(ids.tenantA, ids.ownerA, 'owner', ids.officeA1)
-    await app.query(
+    const companyA1 = await app.query(
       `INSERT INTO companies (tenant_id,office_id,identification_type,tax_id,name)
-       VALUES ($1,$2,'cnpj','04252011000110','Shared Company')`, [ids.tenantA, ids.officeA1])
+       VALUES ($1,$2,'cnpj','04252011000110','Shared Company')
+       RETURNING id`, [ids.tenantA, ids.officeA1])
+    const companyA1Id = companyA1.rows[0].id
+    await app.query(
+      `UPDATE companies SET legal_name = 'Shared Company Legal Name', is_headquarters = TRUE
+        WHERE id = $1`, [companyA1Id])
+    await app.query(
+      `INSERT INTO company_addresses (tenant_id, office_id, company_id, city, state, is_primary)
+       VALUES ($1, $2, $3, 'São Paulo', 'SP', TRUE)`,
+      [ids.tenantA, ids.officeA1, companyA1Id])
+    await app.query(
+      `UPDATE company_addresses SET city = 'Campinas'
+        WHERE company_id = $1 AND is_primary = TRUE`, [companyA1Id])
+    const primaryAddressCount = await app.query(
+      `SELECT COUNT(*)::INTEGER AS count FROM company_addresses
+        WHERE company_id = $1 AND is_primary = TRUE`, [companyA1Id])
+    if (primaryAddressCount.rows[0].count !== 1) {
+      throw new Error('Company has more than one primary address after an update')
+    }
     await app.query('COMMIT')
 
     await app.query('BEGIN')
@@ -87,6 +176,19 @@ async function verify() {
     const scopedCompanies = await app.query('SELECT office_id FROM companies')
     if (scopedCompanies.rowCount !== 1 || scopedCompanies.rows[0].office_id !== ids.officeA2) {
       throw new Error('Company data crossed office boundaries')
+    }
+
+    const hiddenProfile = await app.query(
+      'SELECT legal_name FROM companies WHERE id = $1', [companyA1Id])
+    const hiddenAddress = await app.query(
+      'SELECT id FROM company_addresses WHERE company_id = $1', [companyA1Id])
+    const rejectedProfileUpdate = await app.query(
+      `UPDATE companies SET legal_name = 'Cross-office update' WHERE id = $1`, [companyA1Id])
+    const rejectedAddressUpdate = await app.query(
+      `UPDATE company_addresses SET city = 'Cross-office update' WHERE company_id = $1`, [companyA1Id])
+    if (hiddenProfile.rowCount !== 0 || hiddenAddress.rowCount !== 0
+      || rejectedProfileUpdate.rowCount !== 0 || rejectedAddressUpdate.rowCount !== 0) {
+      throw new Error('Company profile or address crossed office boundaries')
     }
 
     let duplicateInOfficeBlocked = false
@@ -168,9 +270,11 @@ async function verify() {
     }
     if (!secondOwnerBlocked) throw new Error('Database accepted a second owner')
     await app.query('COMMIT')
-    console.log('OK: schema, owner invariant, RLS reads/writes, access constraints, and company isolation were validated.')
+    await verifyPayrollIsolation()
+    console.log('OK: schema, office and company isolation, payroll permissions, and health document auditing were validated.')
   } finally {
     await app.query('ROLLBACK').catch(() => {})
+    await admin.query('DELETE FROM company_addresses WHERE tenant_id = ANY($1::text[])', [[ids.tenantA, ids.tenantB]]).catch(() => {})
     await admin.query('DELETE FROM company_tax_periods WHERE tenant_id = ANY($1::text[])', [[ids.tenantA, ids.tenantB]]).catch(() => {})
     await admin.query('DELETE FROM companies WHERE tenant_id = ANY($1::text[])', [[ids.tenantA, ids.tenantB]]).catch(() => {})
     await admin.query('DELETE FROM invitation_offices WHERE tenant_id = ANY($1::text[])', [[ids.tenantA, ids.tenantB]]).catch(() => {})
